@@ -1,0 +1,18 @@
+KakaoTalk CLI for macOS
+Copyright 2026 KakaoTalk CLI contributors
+
+UNOFFICIAL EXPERIMENTAL PROJECT
+This project has not been reviewed, approved or certified by Kakao.
+It is not an official Kakao product and is not provided or supported by Kakao.
+비공식 실험용 프로젝트입니다. 카카오의 검토·승인·인증을 받지 않았습니다.
+
+Original project code is licensed under Apache License 2.0 (LICENSE).
+The file agent-harness/cli_anything/kakaotalk/utils/repl_skin.py is adapted
+from HKUDS/CLI-Anything: https://github.com/HKUDS/CLI-Anything
+Original copyright and Apache-2.0 license terms remain applicable.
+The architecture follows CLI-Anything conventions; this is a custom macOS
+Accessibility adapter, not an officially certified CLI-Anything harness.
+
+KakaoTalk and Kakao names/marks belong to their respective rights holders.
+No KakaoTalk application binary or private service implementation is included.
+Third-party components retain their own licenses; see THIRD_PARTY_LICENSES.

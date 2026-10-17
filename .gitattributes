@@ -1,0 +1,2 @@
+# Preserve upstream license documents verbatim.
+THIRD_PARTY_LICENSES/** -whitespace

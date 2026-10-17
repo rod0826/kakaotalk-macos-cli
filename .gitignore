@@ -1,0 +1,16 @@
+.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+build/
+dist/
+release/
+agent-harness/cli_anything/kakaotalk/bin/
+*.log
+*-results.txt
+*.sqlite3*
+*.sock
+.env
+.env.*
+.DS_Store
