@@ -213,3 +213,57 @@ def test_backend_accepts_equivalent_unicode_bundle_paths(tmp_path, monkeypatch):
     monkeypatch.setattr(backend,'app_bundle',lambda: bundle)
     monkeypatch.setattr(backend,'connect',lambda: Channel())
     assert backend.call('doctor')['probe'] is True
+
+
+def test_file_selection_never_dispatches_or_claims_request(tmp_path):
+    sample = tmp_path / '선택 검사.zip'
+    sample.write_bytes(b'file-selection-only')
+    backend = FakeBackend()
+    journal = Journal(tmp_path / 'selection.db')
+    service = Service(backend, journal)
+    result = service.select_file('Self', sample)
+    assert result['operation'] == 'file-select'
+    assert backend.calls[0][1]['path'] == str(sample.resolve())
+    assert journal.status() == []
+
+
+def test_file_selection_dry_run_does_not_touch_ui(tmp_path):
+    sample = tmp_path / 'sample.zip'
+    sample.write_bytes(b'test')
+    backend = FakeBackend()
+    service = Service(backend, Journal(tmp_path / 'dry.db'), dry_run=True)
+    result = service.select_file('Self', sample)
+    assert result['dry_run'] and result['operation'] == 'file-select'
+    assert backend.calls == []
+
+
+def test_file_selection_rejects_missing_file_before_ui(tmp_path):
+    backend = FakeBackend()
+    service = Service(backend, Journal(tmp_path / 'invalid.db'))
+    with pytest.raises(ToolError):
+        service.select_file('Self', tmp_path / 'missing.zip')
+    assert backend.calls == []
+
+
+def test_broker_mismatch_explains_translocation_without_accepting_it(tmp_path, monkeypatch):
+    from cli_anything.kakaotalk.utils.kakaotalk_backend import Backend
+    bundle = tmp_path / 'KakaoTalk CLI.app'
+    native = bundle / 'Contents/MacOS/KakaoTalkCLI'
+    native.parent.mkdir(parents=True)
+    native.write_bytes(b'native')
+    class Channel:
+        def __enter__(self): return self
+        def __exit__(self, *args): pass
+        def sendall(self, payload): pass
+        def recv(self, size):
+            return json.dumps({'ok': True, 'broker_build': 'old',
+                'broker_bundle': '/private/AppTranslocation/uuid/d/KakaoTalk CLI.app',
+                'data': {'accessibility_trusted': True}}).encode() + b'\n'
+    backend = Backend(tmp_path)
+    monkeypatch.setattr(backend, 'app_bundle', lambda: bundle)
+    monkeypatch.setattr(backend, 'connect', lambda: Channel())
+    with pytest.raises(ToolError) as error:
+        backend.call('doctor')
+    assert error.value.code == 'BROKER_BUILD_MISMATCH'
+    assert 'AppTranslocation' in str(error.value)
+    assert str(bundle) in str(error.value)

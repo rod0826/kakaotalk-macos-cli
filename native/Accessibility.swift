@@ -54,13 +54,15 @@ func press(_ element: AXUIElement) throws {
         throw Failure("AX_ACTION_FAILED", "요소를 누를 수 없습니다.")
     }
 }
-func waitFor<T>(_ predicate: () -> T?) throws -> T {
+func waitFor<T>(failureCode: String = "UI_TIMEOUT",
+                message: String = "화면 확인 시간이 초과되었습니다. 전송 명령은 자동 재실행하지 마세요.",
+                _ predicate: () -> T?) throws -> T {
     let deadline = Date().addingTimeInterval(5)
     repeat {
         if let result = predicate() { return result }
         RunLoop.current.run(until: Date().addingTimeInterval(0.12))
     } while Date() < deadline
-    throw Failure("UI_TIMEOUT", "화면 확인 시간이 초과되었습니다. 전송 명령은 자동 재실행하지 마세요.")
+    throw Failure(failureCode, message)
 }
 
 final class KakaoAX {
@@ -68,7 +70,7 @@ final class KakaoAX {
     let root: AXUIElement
     let expiresAt: Double
     let stillConnected: () -> Bool
-    init(allowUntested: Bool = false, expiresAt: Double = Date().timeIntervalSince1970 + 20,
+    init(operation: String, allowUntested: Bool = false, expiresAt: Double = Date().timeIntervalSince1970 + 20,
          stillConnected: @escaping () -> Bool = { true }) throws {
         guard AXIsProcessTrusted() else {
             throw Failure("ACCESSIBILITY_REQUIRED", "KakaoTalk CLI.app에 손쉬운 사용 권한을 허용한 뒤 다시 검사하세요.")
@@ -77,8 +79,8 @@ final class KakaoAX {
             throw Failure("APP_NOT_RUNNING", "카카오톡을 실행하고 로그인하세요.")
         }
         let version = app.bundleURL.flatMap { Bundle(url: $0)?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String } ?? "unknown"
-        guard version == testedVersion || allowUntested else {
-            throw Failure("UNTESTED_VERSION", "검증 대상은 \(testedVersion)이며 현재 버전은 \(version)입니다. 호환성 확인 후 --allow-untested-version을 사용하세요.")
+        guard isOperationSupported(version: version, operation: operation) || allowUntested else {
+            throw Failure("UNTESTED_VERSION", "현재 버전 \(version)에서 \(operation)은 검증되지 않았습니다. doctor의 supported_operations와 버전별 안내를 확인하세요. 별도 호환성 테스트에 한해 --allow-untested-version을 사용하세요.")
         }
         self.app = app
         self.expiresAt = expiresAt
@@ -96,27 +98,46 @@ final class KakaoAX {
         return unsafeBitCast(value, to: AXUIElement.self)
     }
     func requireFocus(_ element: AXUIElement) throws {
-        guard app.isActive, let actual = focusedElement(), CFEqual(actual, element) else {
+        guard (attribute(root, kAXFrontmostAttribute) as? Bool) == true,
+              let actual = focusedElement(), CFEqual(actual, element) else {
             throw Failure("FOCUS_MISMATCH", "예상 입력 요소가 실제 포커스와 다릅니다. 키를 누르지 않았습니다.")
         }
     }
     func composer(_ window: AXUIElement) -> AXUIElement? {
         firstNode(window, skipping: [kAXTableRole]) { element in string(element, kAXRoleAttribute) == kAXTextAreaRole &&
-            [kAXDescriptionAttribute, kAXTitleAttribute, kAXPlaceholderValueAttribute].contains { key in string(element, key).contains("메시지 입력") } }
+            isMessageComposer(description: string(element, kAXDescriptionAttribute),
+                              title: string(element, kAXTitleAttribute),
+                              placeholder: string(element, kAXPlaceholderValueAttribute),
+                              value: string(element, kAXValueAttribute)) }
     }
     func roomWindow(_ name: String) throws -> AXUIElement {
+        // Kakao can expose no AXWindows while inactive. Refresh after activation.
+        try activate()
         let matches = windows().filter { string($0, kAXTitleAttribute) == name && composer($0) != nil }
-        guard matches.count == 1 else { throw Failure("ROOM_NOT_OPEN", "이름이 정확히 일치하는 채팅창 하나를 열어야 합니다: \(name)") }
+        guard matches.count == 1 else {
+            let titles = windows().map { string($0, kAXTitleAttribute) }
+            let named = windows().filter { string($0, kAXTitleAttribute) == name }.count
+            throw Failure("ROOM_NOT_OPEN", "채팅창 판별 실패: \(name) (동일 제목 \(named)개, 입력창 확인 \(matches.count)개, 열린 창: \(titles))")
+        }
         return matches[0]
     }
-    func key(_ code: CGKeyCode, flags: CGEventFlags = []) throws {
+    func key(_ code: CGKeyCode, flags: CGEventFlags = [], toFrontmost: Bool = false) throws {
         try requireFreshRequest()
         guard let down = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: true),
               let up = CGEvent(keyboardEventSource: nil, virtualKey: code, keyDown: false) else {
             throw Failure("KEY_EVENT_FAILED", "키 입력을 생성할 수 없습니다.")
         }
         down.flags = flags; up.flags = flags
-        down.postToPid(app.processIdentifier); up.postToPid(app.processIdentifier)
+        if toFrontmost {
+            // Open panels are hosted by an AppKit XPC service; posting only to
+            // Kakao's PID does not reach their keyboard responder.
+            guard (attribute(root, kAXFrontmostAttribute) as? Bool) == true else {
+                throw Failure("FOCUS_MISMATCH", "파일 선택 중 카카오톡이 활성 앱이 아닙니다.")
+            }
+            down.post(tap: .cghidEventTap); up.post(tap: .cghidEventTap)
+        } else {
+            down.postToPid(app.processIdentifier); up.postToPid(app.processIdentifier)
+        }
     }
     func requireFreshRequest() throws {
         guard Date().timeIntervalSince1970 < expiresAt else { throw Failure("REQUEST_EXPIRED", "요청이 만료돼 실행하지 않았습니다.") }
@@ -124,19 +145,24 @@ final class KakaoAX {
     }
     func activate(_ window: AXUIElement? = nil) throws {
         try requireFreshRequest()
-        if !app.isActive {
-            guard let url = app.bundleURL else { throw Failure("APP_PATH_MISSING", "카카오톡 앱 경로 없음") }
-            let configuration = NSWorkspace.OpenConfiguration()
-            configuration.activates = true
-            NSWorkspace.shared.openApplication(at: url, configuration: configuration)
-            let _: Bool = try waitFor { self.app.isActive ? true : nil }
+        if (attribute(root, kAXFrontmostAttribute) as? Bool) != true {
+            // Use the already-authorized AX connection. NSWorkspace sends a reopen
+            // event, while NSRunningApplication activation can be denied to a broker.
+            let result = AXUIElementSetAttributeValue(root, kAXFrontmostAttribute as CFString, kCFBooleanTrue)
+            guard result == .success else {
+                throw Failure("ACTIVATION_FAILED", "AXFrontmost 활성화 실패 (AX 오류 \(result.rawValue))")
+            }
+            let _: Bool = try waitFor {
+                (attribute(self.root, kAXFrontmostAttribute) as? Bool) == true ? true : nil
+            }
         }
         if let window {
             guard AXUIElementPerformAction(window, kAXRaiseAction as CFString) == .success else {
                 throw Failure("RAISE_FAILED", "대상 창 활성화 실패")
             }
             let _: Bool = try waitFor {
-                guard self.app.isActive, let actual = self.focusedWindow(), CFEqual(actual, window) else { return nil }
+                guard (attribute(self.root, kAXFrontmostAttribute) as? Bool) == true,
+                      let actual = self.focusedWindow(), CFEqual(actual, window) else { return nil }
                 return true
             }
         }
@@ -144,51 +170,92 @@ final class KakaoAX {
     func mainWindow() throws -> AXUIElement {
         try activate()
         try key(19, flags: .maskCommand) // Cmd+2: chats, observed in KakaoTalk
-        return try waitFor { self.windows().first { string($0, kAXIdentifierAttribute) == "Main Window" } }
+        return try waitFor {
+            guard let focused = self.focusedWindow(),
+                  string(focused, kAXIdentifierAttribute) == "Main Window" else { return nil }
+            return focused
+        }
     }
     func searchTable(_ query: String) throws -> (AXUIElement, AXUIElement) {
         let main = try mainWindow()
-        guard let field = firstNode(main, skipping: [kAXTableRole], where: {
-            string($0, kAXRoleAttribute) == kAXTextFieldRole &&
-            (string($0, kAXPlaceholderValueAttribute).contains("채팅방") || label($0).contains("검색"))
-        }) else { throw Failure("SEARCH_NOT_FOUND", "채팅방 검색창을 찾을 수 없습니다.") }
-        try set(field, query)
+        func searchField() -> AXUIElement? {
+            firstNode(main, skipping: [kAXTableRole]) {
+                string($0, kAXRoleAttribute) == kAXTextFieldRole &&
+                (string($0, kAXPlaceholderValueAttribute).contains("채팅방") || label($0).contains("검색"))
+            }
+        }
+        if searchField() == nil, let button = firstNode(main, skipping: [kAXTableRole], where: {
+            string($0, kAXRoleAttribute) == kAXButtonRole && label($0) == "검색"
+        }) {
+            try press(button)
+        }
+        // Cmd+2 and modal dismissal are asynchronous. An existing Main Window
+        // handle does not prove its search controls have finished appearing.
+        let field: AXUIElement = try waitFor { searchField() }
+        // AXValue alone changes the displayed string without notifying Kakao's search.
+        // Focus and enter text through keyboard events so its filter receives editing events.
+        try activate(main)
+        guard AXUIElementSetAttributeValue(field, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success else {
+            throw Failure("SEARCH_FOCUS_FAILED", "검색 입력창에 포커스를 설정할 수 없습니다.")
+        }
+        try requireFocus(field)
+        try key(0, flags: .maskCommand)
+        try key(51)
+        if !query.isEmpty {
+            try requireFreshRequest()
+            try requireFocus(field)
+            guard let down = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: true),
+                  let up = CGEvent(keyboardEventSource: nil, virtualKey: 0, keyDown: false) else {
+                throw Failure("KEY_EVENT_FAILED", "검색어 입력 이벤트를 생성할 수 없습니다.")
+            }
+            let units = Array(query.utf16)
+            units.withUnsafeBufferPointer { buffer in
+                down.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: buffer.baseAddress!)
+                up.keyboardSetUnicodeString(stringLength: buffer.count, unicodeString: buffer.baseAddress!)
+            }
+            down.postToPid(app.processIdentifier); up.postToPid(app.processIdentifier)
+        }
+        let _: Bool = try waitFor { string(field, kAXValueAttribute) == query ? true : nil }
         RunLoop.current.run(until: Date().addingTimeInterval(0.45))
+        try requireFreshRequest()
         guard let table = firstNode(main, where: { string($0, kAXRoleAttribute) == kAXTableRole }) else {
             throw Failure("SEARCH_TABLE_MISSING", "채팅방 검색 결과 표 없음")
         }
         return (main, table)
     }
-    func headerNodes(_ row: AXUIElement) -> [AXUIElement] {
+    func headerNodes(_ row: AXUIElement) throws -> [AXUIElement] {
+        try requireFreshRequest()
         let role = string(row, kAXRoleAttribute)
         if [kAXScrollAreaRole, kAXButtonRole, kAXImageRole].contains(role) { return [] }
-        return [row] + children(row).flatMap { headerNodes($0) }
+        return [row] + (try children(row).flatMap { try headerNodes($0) })
+    }
+    func searchHeader(_ row: AXUIElement) throws -> [String] {
+        let texts = try headerNodes(row).map { label($0) }.filter { !$0.isEmpty }
+        return Array(NSOrderedSet(array: texts)) as? [String] ?? []
     }
     func search(_ query: String) throws -> [String: Any] {
         let (_, table) = try searchTable(query)
         let rows = children(table).filter { string($0, kAXRoleAttribute) == kAXRowRole }
-        let items = rows.map { row -> [String: Any] in
-            let texts = headerNodes(row).map { label($0) }.filter { !$0.isEmpty }
-            return ["label": Array(NSOrderedSet(array: texts))]
+        let items = try rows.map { row -> [String: Any] in
+            return ["label": try searchHeader(row)]
         }
+        try requireFreshRequest()
         return ["query": query, "results": items, "scope": "loaded_search_rows", "count": items.count]
     }
     func openRoom(_ name: String) throws -> [String: Any] {
-        // Resolve by exact title from search row's primary text, not substring.
+        try activate()
+        // Always resolve from Kakao's recent-first search order. Reusing an
+        // already-open same-name window could pick an older conversation.
         let (main, table) = try searchTable(name)
         let rows = children(table).filter { string($0, kAXRoleAttribute) == kAXRowRole }
-        let candidates = rows.filter { row in
-            headerNodes(row).contains { element in
-                let role = string(element, kAXRoleAttribute)
-                guard role != kAXTextAreaRole && role != kAXButtonRole else { return false }
-                let value = label(element)
-                return value == name
-            }
+        let headers = try rows.map { try searchHeader($0) }
+        // Only the primary header is the room name; counts/dates are not names.
+        let candidates = headers.indices.filter { headers[$0].first == name }
+        try requireFreshRequest()
+        guard let selected = candidates.first else {
+            throw Failure("ROOM_NOT_FOUND", "검색 결과에 이름이 정확히 일치하는 채팅방이 없습니다: \(name). chat search 결과의 label[0]을 이모지·공백까지 그대로 사용하세요. 다른 label 항목은 제목이 아닙니다.")
         }
-        guard candidates.count == 1 else {
-            throw Failure("AMBIGUOUS_ROOM", "검색 결과에서 고유한 채팅방을 판별할 수 없습니다(후보 \(candidates.count)개). 채팅방 이름을 고유하게 설정하세요.")
-        }
-        let row = candidates[0]
+        let row = rows[selected]
         // Native AXOpen if supported; otherwise selected row + Return.
         var actions: CFArray?
         AXUIElementCopyActionNames(row, &actions)
@@ -212,7 +279,9 @@ final class KakaoAX {
             return focused
         }
         try activate(window)
-        return ["room": name, "opened": true]
+        return ["room": name, "opened": true,
+                "selection": "most_recent_exact_match", "exact_matches": candidates.count,
+                "selected_header": headers[selected]]
     }
     func current(_ name: String?) throws -> [String: Any] {
         let window: AXUIElement
@@ -285,15 +354,20 @@ final class KakaoAX {
         return ["room": name, "dispatch_attempted": true, "delivery_verified": false,
                 "composer_cleared": string(input, kAXValueAttribute).isEmpty, "status": "unknown"]
     }
-    func sendFile(_ name: String, path: String, digest: String) throws -> [String: Any] {
+    func prepareFileSelection(_ name: String, path: String, digest: String) throws -> (AXUIElement, AXUIElement, URL) {
         guard FileManager.default.fileExists(atPath: path), !path.contains("\n"), !path.contains("\0") else {
             throw Failure("INVALID_FILE", "유효한 파일 경로가 필요합니다.")
         }
         _ = try fileDialog(name)
         let window = try roomWindow(name)
-        try key(5, flags: [.maskCommand, .maskShift]) // standard Open panel: Go to Folder
-        let field: AXUIElement = try waitFor {
-            firstNode(window, skipping: [kAXTableRole]) { string($0, kAXRoleAttribute) == kAXComboBoxRole }
+        try key(5, flags: [.maskCommand, .maskShift], toFrontmost: true) // standard Open panel: Go to Folder
+        let field: AXUIElement = try waitFor(failureCode: "FILE_PATH_FIELD_TIMEOUT", message: "폴더로 이동 경로 입력창을 확인하지 못했습니다. 파일은 전송하지 않았습니다.") {
+            let roots = self.windows() + [window] + (self.focusedWindow().map { [$0] } ?? [])
+            return roots.compactMap { root in
+                firstNode(root, skipping: [kAXTableRole, kAXBrowserRole, kAXOutlineRole]) {
+                    isFilePathField(role: string($0, kAXRoleAttribute), identifier: string($0, kAXIdentifierAttribute))
+                }
+            }.first
         }
         try set(field, path)
         guard AXUIElementSetAttributeValue(field, kAXFocusedAttribute as CFString, kCFBooleanTrue) == .success,
@@ -301,22 +375,37 @@ final class KakaoAX {
             throw Failure("FILE_PATH_FOCUS_FAILED", "파일 경로 입력창 검증 실패")
         }
         try requireFocus(field)
-        try key(36)
+        try key(36, toFrontmost: true)
         let canonical = URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL
-        let panel: AXUIElement = try waitFor {
+        let panel: AXUIElement = try waitFor(failureCode: "FILE_SELECTION_TIMEOUT", message: "선택한 파일의 전체 URL을 확인하지 못했습니다. 열기 버튼은 누르지 않았습니다.") {
             guard let panel = firstNode(window, skipping: [kAXTableRole], where: { string($0, kAXIdentifierAttribute) == "open-panel" }) else { return nil }
-            let selected = nodes(panel).filter { (attribute($0, kAXSelectedAttribute) as? Bool) == true }
-            let matches = selected.contains { item in
-                guard let url = attribute(item, kAXURLAttribute) as? URL, url.isFileURL else { return false }
-                return url.resolvingSymlinksInPath().standardizedFileURL == canonical
+            let selected = firstNode(panel, skipping: [kAXOutlineRole]) { item in
+                guard (attribute(item, kAXSelectedAttribute) as? Bool) == true,
+                      let url = attribute(item, kAXURLAttribute) as? URL, url.isFileURL else { return false }
+                return url.resolvingSymlinksInPath().standardizedFileURL.path.precomposedStringWithCanonicalMapping ==
+                    canonical.path.precomposedStringWithCanonicalMapping
             }
-            return matches ? panel : nil
+            return selected != nil ? panel : nil
         }
         let currentDigest = SHA256.hash(data: try Data(contentsOf: canonical)).map { String(format: "%02x", $0) }.joined()
         guard currentDigest == digest else { throw Failure("FILE_CHANGED", "선택 중 파일 내용이 바뀌었습니다. 전송하지 않았습니다.") }
         guard string(window, kAXTitleAttribute) == name,
               let open = nodes(panel).first(where: { string($0, kAXIdentifierAttribute) == "OKButton" }) else {
             throw Failure("FILE_TARGET_CHANGED", "파일 전송 대상 확인 실패")
+        }
+        try requireFreshRequest()
+        return (window, open, canonical)
+    }
+    func selectFile(_ name: String, path: String, digest: String) throws -> [String: Any] {
+        let (_, open, canonical) = try prepareFileSelection(name, path: path, digest: digest)
+        return ["room": name, "path": canonical.path, "sha256": digest,
+                "selection_verified": true, "open_enabled": (attribute(open, kAXEnabledAttribute) as? Bool) == true,
+                "file_dialog_open": true, "dispatch_attempted": false, "sent": false]
+    }
+    func sendFile(_ name: String, path: String, digest: String) throws -> [String: Any] {
+        let (_, open, _) = try prepareFileSelection(name, path: path, digest: digest)
+        guard (attribute(open, kAXEnabledAttribute) as? Bool) == true else {
+            throw Failure("FILE_OPEN_DISABLED", "파일은 선택됐지만 열기 버튼이 비활성화되어 전송하지 않았습니다.")
         }
         try requireFreshRequest()
         try press(open)
@@ -331,7 +420,12 @@ func diagnostic() -> [String: Any] {
     let version = url.flatMap { Bundle(url: $0)?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String }
     return ["platform": "macOS", "architecture": "arm64", "accessibility_trusted": AXIsProcessTrusted(),
             "app_installed": url != nil, "app_path": url?.path ?? "", "app_version": version ?? "",
-            "tested_app_version": testedVersion, "version_matches": version == testedVersion,
+            "tested_app_version": testedVersion, "version_matches": supportedVersions.contains(version ?? ""),
+            "supported_app_versions": supportedVersions,
+            "supported_operations": supportedOperations(version: version ?? ""),
+            "dispatch_supported": isOperationSupported(version: version ?? "", operation: "send"),
+            "broker_bundle": Bundle.main.bundleURL.path,
+            "broker_translocated": isAppTranslocated(Bundle.main.bundleURL),
             "running": !NSRunningApplication.runningApplications(withBundleIdentifier: kakaoID).isEmpty,
             "backend": "native-AXUIElement", "background_supported": false]
 }
@@ -346,7 +440,7 @@ func handle(_ request: [String: Any], stillConnected: @escaping () -> Bool = { t
     guard descriptor >= 0 else { throw Failure("LOCK_FAILED", "UI 잠금 파일을 열 수 없습니다.") }
     defer { Darwin.close(descriptor) }
     guard flock(descriptor, LOCK_EX | LOCK_NB) == 0 else { throw Failure("UI_BUSY", "다른 카카오톡 CLI 작업이 실행 중입니다.") }
-    let backend = try KakaoAX(allowUntested: request["allow_untested"] as? Bool ?? false,
+    let backend = try KakaoAX(operation: operation, allowUntested: request["allow_untested"] as? Bool ?? false,
                              expiresAt: request["expires_at"] as? Double ?? Date().timeIntervalSince1970 + 20,
                              stillConnected: stillConnected)
     func room() throws -> String {
@@ -362,6 +456,7 @@ func handle(_ request: [String: Any], stillConnected: @escaping () -> Bool = { t
     case "file-dialog": return try backend.fileDialog(room())
     case "file-cancel": return try backend.cancelFile(room())
     case "send": return try backend.send(room(), text: request["text"] as? String ?? "")
+    case "file-select": return try backend.selectFile(room(), path: request["path"] as? String ?? "", digest: request["file_digest"] as? String ?? "")
     case "file-send": return try backend.sendFile(room(), path: request["path"] as? String ?? "", digest: request["file_digest"] as? String ?? "")
     default: throw Failure("UNKNOWN_OPERATION", "지원하지 않는 operation")
     }

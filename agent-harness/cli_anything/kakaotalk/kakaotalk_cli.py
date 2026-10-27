@@ -42,7 +42,7 @@ def service():
 @click.option('--json', 'json_mode', is_flag=True, help='Emit a JSON envelope (put before command).')
 @click.option('--dry-run', is_flag=True, help='Plan without touching KakaoTalk or recording a send.')
 @click.option('--state-dir', type=click.Path(path_type=Path), default=default_state_dir)
-@click.option('--allow-untested-version', is_flag=True, help='Explicitly allow a version other than 26.5.0.')
+@click.option('--allow-untested-version', is_flag=True, help='Explicitly allow an unverified operation/version for compatibility testing.')
 @click.version_option(__version__)
 @click.pass_context
 def cli(ctx, json_mode, dry_run, state_dir, allow_untested_version):
@@ -160,6 +160,14 @@ def dialog(room):
 def cancel(room):
     validate_room(room)
     emit(service().action('file-cancel', room=room))
+
+
+@file_group.command('select')
+@click.option('--room', required=True)
+@click.argument('path', type=click.Path(path_type=Path))
+def select_file(room, path):
+    """Select and verify a file, leaving the picker open. Never presses Open."""
+    emit(service().select_file(room, path))
 
 
 @file_group.command('send')
