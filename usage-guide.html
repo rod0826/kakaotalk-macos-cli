@@ -13,5 +13,5 @@ cli-anything-kakaotalk --json chat current --room "정확한 방 이름"</pre>
 <p>파일 선택창 열기·취소는 <code>file dialog</code> / <code>file cancel</code>입니다. <code>file send</code>는 실전 전송 검증 전인 실험 기능입니다. 전체 대화 이력 추출이나 수신 감시는 제공하지 않습니다.</p>
 <h2>설치 위치와 제거</h2><p>앱은 <code>~/Applications/KakaoTalk CLI.app</code>, CLI 연결은 <code>~/.local/bin/cli-anything-kakaotalk</code>, 스킬 연결은 <code>~/.codex/skills/cli-anything-kakaotalk</code> 및 <code>~/.claude/skills/cli-anything-kakaotalk</code>입니다. 기존 파일은 덮어쓰지 않습니다. 앱은 설치 후 이동하지 마세요.</p>
 <p>전송 요청의 ID·해시·상태만 <code>~/Library/Application Support/KakaoTalkCLI</code>에 기록합니다. 대화 내용은 기록하지 않지만 명령의 출력과 터미널 기록에는 내용이 남을 수 있습니다. 앱·세 연결·상태 폴더를 제거하고 시스템 설정에서 권한을 해제하면 제거됩니다. 실행한 전송은 취소되지 않습니다.</p>
-<h2>호환성</h2><p>카카오톡 26.5.0, Apple Silicon, macOS 14 이상 대상입니다. 버전이 바뀌면 기본적으로 UI 제어가 중단됩니다. 명령별 실제 검증 범위는 함께 제공된 검증 보고서를 확인하세요. Apple 공증 없이 로컬 임시 서명된 앱이며 다른 Mac 배포 시 추가 서명·공증이 필요합니다.</p>
+<h2>설치 경로</h2><p>사용자 앱 폴더에 설치한 뒤 원래 앱을 종료하고 Finder에서 ~/Applications/KakaoTalk CLI.app을 직접 여세요. 이 설치 앱에만 손쉬운 사용 권한을 부여하세요. CLI와 스킬은 이 고정 경로를 사용합니다. AppTranslocation 오류가 계속되면 회사 정책에 따른 개별 앱 승인을 확인하세요.</p><h2>호환성</h2><p>Apple Silicon, macOS 14 이상 대상입니다. 카카오톡 26.5.0은 기존 기능, 26.8.0은 검색·열기·초안·읽기·파일 선택창 열기/취소를 지원합니다. 26.8.0 파일 선택·전송은 기본 차단됩니다. doctor의 supported_operations를 확인하세요. 명령별 실제 검증 범위는 함께 제공된 검증 보고서를 확인하세요. Apple 공증 없이 로컬 임시 서명된 앱이며 다른 Mac 배포 시 추가 서명·공증이 필요합니다.</p>
 </html>

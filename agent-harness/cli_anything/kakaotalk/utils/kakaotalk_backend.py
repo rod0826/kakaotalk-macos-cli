@@ -55,7 +55,7 @@ class Backend:
         launched = subprocess.run(['/usr/bin/open','-g','-a',str(self.app_bundle()),'--args','--serve'],
                                   text=True, capture_output=True, timeout=10)
         if launched.returncode:
-            raise ToolError('APP_LAUNCH_FAILED', 'Could not launch the dedicated control app.')
+            raise ToolError('APP_LAUNCH_FAILED', f'Could not launch {self.app_bundle()}. Open that app in Finder and follow macOS approval prompts; also check whether the agent sandbox blocks LaunchServices.')
         deadline = time.monotonic() + 8
         while time.monotonic() < deadline:
             channel = attempt()
@@ -94,7 +94,14 @@ class Backend:
             raise ToolError('BACKEND_PROTOCOL_ERROR', 'Invalid native response envelope.')
         actual_bundle = response.get('broker_bundle')
         if response.get('broker_build') != request['expected_build'] or not isinstance(actual_bundle, str) or unicodedata.normalize('NFC', actual_bundle) != unicodedata.normalize('NFC', request['expected_bundle']):
-            raise ToolError('BROKER_BUILD_MISMATCH', 'Running broker build/path differs. Quit the old app and open the current app.')
+            translocated = isinstance(actual_bundle, str) and 'AppTranslocation' in Path(actual_bundle).parts
+            note = (' AppTranslocation detected. Quit the temporary app, then open '
+                    '~/Applications/KakaoTalk CLI.app in Finder and follow macOS approval prompts.'
+                    if translocated else ' Quit the old app and open the expected app.')
+            raise ToolError('BROKER_BUILD_MISMATCH',
+                            f'Running broker build/path differs. Expected: {bundle}; '
+                            f'actual: {actual_bundle}; expected build: {request["expected_build"]}; '
+                            f'actual build: {response.get("broker_build")}.{note}')
         if not response['ok']:
             error = response.get('error', {})
             if not isinstance(error, dict):

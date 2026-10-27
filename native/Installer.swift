@@ -55,13 +55,16 @@ final class Installer: NSObject, NSApplicationDelegate {
         do { broker = try Broker(); broker?.start() }
         catch { details.stringValue = (error as? Failure)?.message ?? error.localizedDescription }
         refresh()
+        if isAppTranslocated(Bundle.main.bundleURL) {
+            details.stringValue = "AppTranslocation 임시 경로에서 실행 중입니다. 1번으로 사용자 앱 폴더에 설치한 뒤 이 앱을 종료하세요. Finder에서 ~/Applications/KakaoTalk CLI.app을 직접 여세요. 보안 승인 안내가 나오면 회사 정책에 따라 승인하세요. 임시 경로 앱에는 권한을 부여하지 마세요."
+        }
         if !CommandLine.arguments.contains("--serve") {
             window.center(); window.makeKeyAndOrderFront(nil); NSApp.activate()
         }
     }
     @objc func refresh() {
         let d = diagnostic()
-        status.stringValue = "카카오톡: \(d["app_version"] as? String ?? "미설치")  ·  검증 대상: \(testedVersion)\n실행 상태: \((d["running"] as? Bool ?? false) ? "실행 중" : "종료됨")\n손쉬운 사용 권한: \(AXIsProcessTrusted() ? "허용됨" : "설정 필요")\nCLI 버전: 0.1.0 · Apple Silicon"
+        status.stringValue = "카카오톡: \(d["app_version"] as? String ?? "미설치")  ·  검증 대상: \(supportedVersions.joined(separator: ", "))\n실행 상태: \((d["running"] as? Bool ?? false) ? "실행 중" : "종료됨")\n손쉬운 사용 권한: \(AXIsProcessTrusted() ? "허용됨" : "설정 필요")\nCLI 버전: 0.1.1 · Apple Silicon"
     }
     func alert(_ message: String, error: Bool = false) {
         let alert = NSAlert(); alert.messageText = error ? "작업을 완료하지 못했습니다" : "완료"
@@ -94,31 +97,28 @@ final class Installer: NSObject, NSApplicationDelegate {
             NSApp.terminate(nil)
         } catch { alert((error as? Failure)?.message ?? error.localizedDescription, error: true) }
     }
-    func link(_ source: URL, _ destination: URL) throws {
-        let fm = FileManager.default
-        try fm.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
-        if let target = try? fm.destinationOfSymbolicLink(atPath: destination.path), target == source.path { return }
-        if fm.fileExists(atPath: destination.path) || (try? fm.destinationOfSymbolicLink(atPath: destination.path)) != nil {
-            throw Failure("INSTALL_EXISTS", "덮어쓰지 않았습니다. 기존 경로를 확인하세요: \(destination.path)")
-        }
-        try fm.createSymbolicLink(at: destination, withDestinationURL: source)
-    }
     @objc func installTools() {
-        guard let resources = Bundle.main.resourceURL else { return }
         let home = FileManager.default.homeDirectoryForCurrentUser
         do {
+            let resources = try installedResources(currentBundle: Bundle.main.bundleURL, home: home)
             let cli = resources.appendingPathComponent("cli/cli-anything-kakaotalk")
             guard FileManager.default.isExecutableFile(atPath: cli.path) else { throw Failure("CLI_MISSING", "CLI 실행 파일 없음") }
             let skill = resources.appendingPathComponent("skills/cli-anything-kakaotalk")
-            // Preserve all existing user tools and skills; no shell profile edits.
-            try link(cli, home.appendingPathComponent(".local/bin/cli-anything-kakaotalk"))
-            try link(skill, home.appendingPathComponent(".codex/skills/cli-anything-kakaotalk"))
-            try link(skill, home.appendingPathComponent(".claude/skills/cli-anything-kakaotalk"))
+            let links = [
+                (cli, home.appendingPathComponent(".local/bin/cli-anything-kakaotalk")),
+                (skill, home.appendingPathComponent(".codex/skills/cli-anything-kakaotalk")),
+                (skill, home.appendingPathComponent(".claude/skills/cli-anything-kakaotalk"))]
+            guard FileManager.default.fileExists(atPath: skill.appendingPathComponent("SKILL.md").path) else {
+                throw Failure("SKILL_MISSING", "설치된 앱에 스킬 파일이 없습니다.")
+            }
+            // Preflight every destination before repairing any old links.
+            for (source, destination) in links { try validateToolLink(source, destination) }
+            for (source, destination) in links { try installToolLink(source, destination) }
             alert("CLI와 양쪽 스킬을 설치했습니다.\n\n명령: ~/.local/bin/cli-anything-kakaotalk --json doctor\n\nCodex·Claude Code에서 새 대화를 시작하세요. PATH에 ~/.local/bin이 없어도 위 전체 경로를 사용할 수 있습니다.")
         } catch { alert((error as? Failure)?.message ?? error.localizedDescription, error: true) }
     }
     @objc func help() {
-        if let url = Bundle.main.resourceURL?.appendingPathComponent("사용안내.html") { NSWorkspace.shared.open(url) }
+        if let url = Bundle.main.resourceURL?.appendingPathComponent("usage-guide.html") { NSWorkspace.shared.open(url) }
     }
     func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {

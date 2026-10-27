@@ -34,14 +34,23 @@ class Service:
         validate_text(text)
         return self._dispatch('send', room, confirm_room, request_id, text=text)
 
+    def select_file(self, room, path):
+        validate_room(room)
+        payload = self._file_payload(path)
+        return self.action('file-select', room=room, **payload)
+
     def send_file(self, room, path, confirm_room, request_id):
+        return self._dispatch('file-send', room, confirm_room, request_id, **self._file_payload(path))
+
+    @staticmethod
+    def _file_payload(path):
         path = Path(path).expanduser()
         if not path.is_file() or path.is_symlink() or path.stat().st_size > 100 * 1024 * 1024:
             raise ToolError('INVALID_FILE', 'Choose a regular file at most 100 MiB.')
         path = path.resolve()
         # Fingerprint bytes to prevent request ID reuse for changed files.
         digest = hashlib.sha256(path.read_bytes()).hexdigest()
-        return self._dispatch('file-send', room, confirm_room, request_id, path=str(path), file_digest=digest)
+        return {'path': str(path), 'file_digest': digest}
 
     def _dispatch(self, operation, room, confirm_room, request_id, **payload):
         validate_room(room)
