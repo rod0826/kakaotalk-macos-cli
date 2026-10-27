@@ -1,3 +1,26 @@
+# Verification — 0.1.1 (2026-10-27, Asia/Seoul)
+
+## Current patch validation
+
+- Python core and packaging regressions: **36 passed** (30 core + 6 packaging).
+- Swift composer/path-field identity, installation filesystem regressions, and version/operation policy suites: all passed.
+- Fresh Apple Silicon/macOS 14 minimum app build and frozen CLI help smoke check: passed. The new app was not installed over the already authorized development app.
+- `codesign --verify --deep --strict` passed before ZIP creation and after actual `/usr/bin/ditto -x -k` extraction of the final ZIP. Every signed bundle path is ASCII.
+- Final archive hash is emitted in its external `.zip.sha256` sidecar after extraction verification. No current archive hash is embedded inside the archive. `BUILD.json` contains the native/CLI executable hashes.
+- Independent review checked stable installation links, preservation of existing files, version restrictions, broker identity checks and packaging. No required findings remained.
+
+## Remaining company checks
+
+Finder/Archive Utility extraction, first launch under company Gatekeeper policy, Accessibility approval and actual company-Mac UI flows must be retested with 0.1.1. The local packaging check used ditto; it is not a claim that Finder was tested. No new real message or attachment was sent for this patch. The standalone native doctor smoke test ran inside the agent sandbox and is not evidence of actual GUI permission/running state.
+
+[Issue #5](https://github.com/rod0826/kakaotalk-macos-cli/issues/5) reports seven non-dispatch operations on KakaoTalk 26.8.0. Only those operations are enabled by default for that version; file selection and message/file dispatch remain unverified. See [version support](docs/version-support.md).
+
+Prior local 26.5.0 work verified file selection/cancel and one explicitly authorized file transmission using CLI selection plus Computer Use final confirmation, followed by sender-side attachment inspection. That observation does not imply delivery/read receipts or native handling of the final confirmation. Prior search/focus/composer/file-picker corrections and regression tests are included in this patch. The native dispatch result remains unknown until separately inspected.
+
+## Historical 0.1.0 evidence
+
+The dated record below describes the initial export only, not the current patch or current company ZIP. Its test counts and non-dispatch scope must not be interpreted as current aggregate results.
+
 # Verification — 2026-10-17 (Asia/Seoul)
 
 ## Executed and passed
