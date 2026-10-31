@@ -7,14 +7,14 @@
 
 이 저장소는 **소스만 공개**합니다. 설치 앱·ZIP은 GitHub Releases에 게시하지 않습니다. 개발자가 직접 빌드해야 하며, 별도 전달된 테스트 ZIP은 아래 회사 맥북 안내를 참고하세요. 새로 빌드하면 임시 서명이 달라져 손쉬운 사용 권한을 다시 허용해야 할 수 있습니다.
 
-## 설치
+## 설치 및 업데이트
 
-1. `dist/KakaoTalk CLI.app`을 엽니다.
-2. **사용자 앱 폴더에 설치**를 눌러 `~/Applications/KakaoTalk CLI.app`으로 복사합니다. 관리자 권한은 필요하지 않습니다. 기존 앱은 덮어쓰지 않습니다.
-3. 원래 앱을 종료하고 **Finder에서 `~/Applications/KakaoTalk CLI.app`을 직접 연 뒤**, 앱의 **손쉬운 사용 권한 설정 열기**로 시스템 설정을 열고, KakaoTalk CLI 앱을 추가·허용합니다.
+1. ZIP을 Finder로 푼 뒤, **앱을 먼저 실행하지 말고** `KakaoTalk CLI.app`을 Finder로 **사용자 앱 폴더 `~/Applications`에 직접 드래그**합니다. Finder의 이동 → 폴더로 이동(Shift+Cmd+G)에 `~/Applications`를 입력합니다. 시스템 `/Applications`와 구분하세요. 폴더가 없으면 홈 폴더 안에 `Applications`를 만듭니다.
+2. 업데이트라면 이전 제어 앱을 종료하고 같은 위치의 앱을 Finder **대치**로 교체합니다. CLI·스킬 링크와 상태 폴더는 유지합니다. 0.1.2 앱의 **Finder로 설치·업데이트 안내** 및 **사용자 앱 폴더를 Finder에서 보기** 버튼은 이 과정을 안내하며 앱을 프로그램으로 복사하지 않습니다.
+3. 설치된 앱을 Finder에서 열고 회사 정책에 따른 macOS 개별 앱 승인 절차를 진행합니다. **손쉬운 사용 권한 설정 열기**에서 해당 설치 앱만 추가·허용합니다. 앱 경로나 임시 서명이 바뀌면 기존 허용이 켜져 있어도 다시 설정해야 할 수 있습니다.
 4. **CLI + Codex·Claude Code 스킬 설치**를 누릅니다. 새 대화부터 사용하세요.
 
-CLI는 Python 런타임을 내장합니다. 배포 앱 사용자에게 Python·Homebrew·Node 설치가 필요하지 않습니다. Apple Silicon/macOS 14 이상용이며, 카카오톡 **26.5.0**의 기존 기능과 **26.8.0**의 검색·열기·초안·읽기·파일 선택창 열기/취소를 지원합니다. 26.8.0의 파일 선택·전송은 아직 검증되지 않아 기본 차단됩니다. `doctor`의 `supported_operations`를 확인하세요. 로컬 임시 서명만 적용됐고 Apple 공증은 받지 않았습니다. 다른 Mac에 배포하려면 정식 서명·공증이 필요합니다. macOS 보안 기능을 자동 해제하지 않습니다.
+CLI는 Python 런타임을 내장합니다. 배포 앱 사용자에게 Python·Homebrew·Node 설치가 필요하지 않습니다. Apple Silicon/macOS 14 이상용이며, 카카오톡 **26.5.0**의 기존 기능과 **26.8.0·26.9.0**의 검색·열기·초안·읽기·파일 선택창 열기/취소를 지원합니다. 26.8.0·26.9.0의 파일 선택·전송은 아직 검증되지 않아 기본 차단됩니다. `doctor`의 `supported_operations`를 확인하세요. 로컬 임시 서명만 적용됐고 Apple 공증은 받지 않았습니다. 다른 Mac에 배포하려면 정식 서명·공증이 필요합니다. macOS 보안 기능을 자동 해제하지 않습니다.
 
 ## 사용
 
@@ -71,7 +71,7 @@ python3.12 -m venv .venv
 .venv/bin/python -m pip install --no-build-isolation --no-deps -e agent-harness
 .venv/bin/python scripts/build.py
 .venv/bin/python scripts/package.py
-(cd dist && shasum -a 256 -c KakaoTalk-CLI-0.1.1-company-test-macOS-arm64.zip.sha256)
+(cd dist && shasum -a 256 -c KakaoTalk-CLI-0.1.2-company-test-macOS-arm64.zip.sha256)
 .venv/bin/python -m pytest agent-harness/cli_anything/kakaotalk/tests/test_core.py -v
 PATH="$PWD/.venv/bin:$PATH" CLI_ANYTHING_FORCE_INSTALLED=1 KAKAO_TEST_ROOM="나와의 채팅방 실제 이름" \
   .venv/bin/python -m pytest agent-harness/cli_anything/kakaotalk/tests/test_full_e2e.py -v
@@ -81,11 +81,17 @@ Xcode Command Line Tools가 빌드에 필요합니다. 실전 테스트는 실�
 
 자세한 결과는 `VERIFICATION.md`, 개인 경로와 대화 내용을 제외한 테스트 계획·요약은 `agent-harness/cli_anything/kakaotalk/tests/TEST.md`에 기록합니다.
 
-## 회사 Mac 설치 문제 진단
+## 회사 Mac 설치·데스크톱 문제 진단
 
-0.1.1부터 서명된 앱 안의 안내 파일은 ASCII 이름 `usage-guide.html`을 사용합니다. ZIP은 앱 서명 검사 후 생성하며, macOS `ditto`로 다시 추출해 서명을 검사한 다음 최종 ZIP의 `.zip.sha256`을 외부에 생성합니다. ZIP 내부 문서에 현재 ZIP 자체의 해시는 넣지 않습니다.
+서명된 앱 내부 파일명은 ASCII를 사용합니다. 패키지는 서명 확인 → ZIP 생성 → macOS ditto 추출·서명 재검증 → 외부 `.zip.sha256` 생성 순서로 만듭니다. `BUILD.json`은 실제 버전·서명 종류·실행 파일 해시를 기록합니다.
 
-CLI와 스킬 링크는 동일 빌드가 설치된 `~/Applications/KakaoTalk CLI.app`만 가리킵니다. 이전 설치가 만든 AppTranslocation 링크는 자동 복구하지만, 다른 파일·링크는 보존합니다. `BROKER_BUILD_MISMATCH` 오류에는 기대 경로·실행 경로와 빌드 해시가 표시됩니다. AppTranslocation이면 임시 앱을 종료하고 Finder에서 설치된 앱을 직접 연 뒤 macOS의 개별 앱 승인 절차를 따르세요. 계속 임시 경로에서 실행되면 회사 관리자에게 승인·정식 서명 배포를 요청하세요. 서명·경로 일치 검사를 끄거나 보안 설정을 일괄 해제하지 않습니다.
+`BROKER_BUILD_MISMATCH`에는 기대/실행 경로와 빌드 해시가 표시됩니다. AppTranslocation이면 앱을 종료하고 **Finder 드래그로 설치**하세요. 이미 `~/Applications`에 있는 앱도 임시 경로로 실행되면, 종료 후 Finder로 다른 사용자 폴더에 옮겼다가 **같은 `~/Applications` 위치로 되돌린 뒤** 다시 엽니다. 이는 회사 재시험에서 확인된 복구 방법이며 quarantine을 제거하지 않습니다. 경로가 바뀌면 손쉬운 사용 권한도 재설정해야 할 수 있습니다. 회사 정책이 막으면 관리자 승인이 필요합니다.
+
+`WINDOWS_UNAVAILABLE`은 활성화·제한된 재탐색 후에도 접근성 창 목록이 비어 있다는 뜻입니다. 다른 Space/전체 화면/최소화/앱 전환 중일 수 있으나 이 코드만으로 원인을 확정하지 않습니다. 카카오톡 창이 보이는 데스크톱으로 이동하고 전체 화면·최소화를 해제한 뒤 `chat current --room "정확한 제목"`으로 확인하세요. 읽기·초안·파일 작업도 같은 창 검사 경로를 사용합니다. 자동으로 방을 다시 열거나 전송을 재실행하지 않습니다.
+
+카카오톡 26.9.0도 보고된 비전송 작업만 허용합니다. 알려지지 않은 미래 버전은 UI 구조 검증이 없으므로 자동 허용하지 않습니다. 명시적인 `--allow-untested-version`으로 별도 호환성 시험을 할 수 있습니다.
+
+고정 코드 서명 인증서는 빌드 옵션으로 지정할 수 있습니다. [서명 안내](docs/signing.md)에 설정과 검증 방법을 설명합니다. 같은 인증서·bundle ID·지정 요구사항·경로를 유지해도 회사 TCC 정책에서 권한 유지가 보장되는 것은 아닙니다. 이 개발 환경에는 사용 가능한 서명 인증서가 없어 이번 별도 테스트 ZIP은 **임시 서명·미공증**입니다. 권한 유지 문제는 인증서로 서명한 후 추가 시험이 필요합니다.
 
 ## 제거
 
