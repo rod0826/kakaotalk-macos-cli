@@ -7,6 +7,7 @@ import argparse
 import hashlib
 import json
 import os
+import plistlib
 from pathlib import Path
 import shutil
 import subprocess
@@ -14,7 +15,7 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.1.1'
+VERSION = (ROOT/'VERSION').read_text().strip()
 
 
 def sha256(path):
@@ -27,6 +28,26 @@ def sha256(path):
 
 def verify_signature(app):
     subprocess.run(['codesign', '--verify', '--deep', '--strict', str(app)], check=True)
+
+
+def signing_metadata(app):
+    result = subprocess.run(['codesign', '-d', '--verbose=4', '-r-', str(app)],
+                            capture_output=True, text=True, check=True)
+    lines = [line.removeprefix('# ').strip() for line in
+             (result.stdout + '\n' + result.stderr).splitlines()]
+    authorities = [line.split('=', 1)[1] for line in lines if line.startswith('Authority=')]
+    requirements = [line.partition('designated => ')[2] for line in lines
+                    if line.startswith('designated => ')]
+    if not requirements or not (authorities or 'Signature=adhoc' in lines):
+        raise ValueError('Cannot determine actual signing identity and designated requirement')
+    return {
+        'type': 'ad-hoc' if 'Signature=adhoc' in lines else 'certificate',
+        'authorities': authorities,
+        'team_identifier': next((line.split('=', 1)[1] for line in lines
+                                 if line.startswith('TeamIdentifier=')), None),
+        'designated_requirement': requirements[0],
+        'notarization': 'not assessed',
+    }
 
 
 def verify_ascii_paths(app):
@@ -67,6 +88,11 @@ def package(root=ROOT, app=None, output=None):
     output = Path(output) if output else root/'dist'
     verify_ascii_paths(app)
     verify_signature(app)
+    with (app/'Contents/Info.plist').open('rb') as stream:
+        app_version = plistlib.load(stream)['CFBundleShortVersionString']
+    if app_version != VERSION:
+        raise ValueError(f'App version {app_version} does not match release version {VERSION}')
+    signature = signing_metadata(app)
     output.mkdir(parents=True, exist_ok=True)
     name = f'KakaoTalk-CLI-{VERSION}-company-test-arm64'
     archive = output/f'KakaoTalk-CLI-{VERSION}-company-test-macOS-arm64.zip'
@@ -79,12 +105,13 @@ def package(root=ROOT, app=None, output=None):
         shutil.copytree(root/'THIRD_PARTY_LICENSES', stage/'THIRD_PARTY_LICENSES', symlinks=True)
         shutil.copy2(root/'docs/company-mac-test.md', stage/'company-mac-test.md')
         shutil.copy2(root/'docs/version-support.md', stage/'version-support.md')
+        shutil.copy2(root/'docs/signing.md', stage/'signing.md')
         manifest = {
             'version': VERSION,
             'architecture': 'arm64',
             'native_sha256': sha256(app/'Contents/MacOS/KakaoTalkCLI'),
             'cli_sha256': sha256(app/'Contents/Resources/cli/cli-anything-kakaotalk'),
-            'signature': 'ad-hoc; not notarized',
+            'signature': signature,
         }
         (stage/'BUILD.json').write_text(json.dumps(manifest, indent=2, sort_keys=True)+'\n', encoding='utf-8')
         (stage/'VERIFICATION.md').write_text(
@@ -92,7 +119,7 @@ def package(root=ROOT, app=None, output=None):
             'The app signature was checked with `codesign --verify --deep --strict` before packaging.\n'
             'The final ZIP is extracted with macOS ditto and its app signature is checked again.\n'
             'All signed bundle paths use ASCII to avoid filename normalization differences.\n\n'
-            'BUILD.json records the native executable and CLI SHA-256 values.\n'
+            'BUILD.json records the native executable and CLI SHA-256 values, actual signing type, certificate chain and designated requirement.\n'
             'The final archive SHA-256 is in the adjacent `.zip.sha256` sidecar, created only after extraction verification.\n'
             'Keep that sidecar beside the ZIP; an archive cannot contain its own final checksum.\n\n'
             'This verifies packaging integrity; company-Mac UI behavior still requires the supplied test instructions.\n',

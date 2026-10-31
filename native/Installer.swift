@@ -17,11 +17,11 @@ final class Installer: NSObject, NSApplicationDelegate {
         item.submenu = submenu
         NSApp.mainMenu = menu
 
-        window = NSWindow(contentRect: NSRect(x: 0,y: 0,width: 600,height: 530),
+        window = NSWindow(contentRect: NSRect(x: 0,y: 0,width: 600,height: 700),
                           styleMask: [.titled,.closable,.miniaturizable], backing: .buffered, defer: false)
         window.title = "KakaoTalk CLI · 설치 및 진단"
         let stack = NSStackView()
-        stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 18
+        stack.orientation = .vertical; stack.alignment = .leading; stack.spacing = 12
         stack.translatesAutoresizingMaskIntoConstraints = false
         window.contentView!.addSubview(stack)
         NSLayoutConstraint.activate([
@@ -37,7 +37,8 @@ final class Installer: NSObject, NSApplicationDelegate {
         status.setAccessibilityIdentifier("diagnostic-status")
         stack.addArrangedSubview(status)
         for (title, action) in [
-            ("1. 사용자 앱 폴더에 설치", #selector(installApp)),
+            ("1. Finder로 설치·업데이트 안내", #selector(installApp)),
+            ("사용자 앱 폴더를 Finder에서 보기", #selector(showInstallFolder)),
             ("2. 손쉬운 사용 권한 설정 열기", #selector(permission)),
             ("3. CLI + Codex·Claude Code 스킬 설치", #selector(installTools)),
             ("상태 다시 검사", #selector(refresh)),
@@ -56,7 +57,7 @@ final class Installer: NSObject, NSApplicationDelegate {
         catch { details.stringValue = (error as? Failure)?.message ?? error.localizedDescription }
         refresh()
         if isAppTranslocated(Bundle.main.bundleURL) {
-            details.stringValue = "AppTranslocation 임시 경로에서 실행 중입니다. 1번으로 사용자 앱 폴더에 설치한 뒤 이 앱을 종료하세요. Finder에서 ~/Applications/KakaoTalk CLI.app을 직접 여세요. 보안 승인 안내가 나오면 회사 정책에 따라 승인하세요. 임시 경로 앱에는 권한을 부여하지 마세요."
+            details.stringValue = "AppTranslocation 임시 경로에서 실행 중입니다. 이 앱을 종료하고 압축 푼 앱을 Finder로 ~/Applications에 직접 드래그하세요. 이미 설치된 앱도 임시 실행되면 Finder로 다른 사용자 폴더로 옮겼다가 같은 위치로 되돌리세요. 보안 승인 안내가 나오면 회사 정책에 따라 승인하세요. 임시 경로 앱에는 권한을 부여하지 마세요."
         }
         if !CommandLine.arguments.contains("--serve") {
             window.center(); window.makeKeyAndOrderFront(nil); NSApp.activate()
@@ -64,13 +65,19 @@ final class Installer: NSObject, NSApplicationDelegate {
     }
     @objc func refresh() {
         let d = diagnostic()
-        status.stringValue = "카카오톡: \(d["app_version"] as? String ?? "미설치")  ·  검증 대상: \(supportedVersions.joined(separator: ", "))\n실행 상태: \((d["running"] as? Bool ?? false) ? "실행 중" : "종료됨")\n손쉬운 사용 권한: \(AXIsProcessTrusted() ? "허용됨" : "설정 필요")\nCLI 버전: 0.1.1 · Apple Silicon"
+        status.stringValue = "카카오톡: \(d["app_version"] as? String ?? "미설치")  ·  검증 대상: \(supportedVersions.joined(separator: ", "))\n실행 상태: \((d["running"] as? Bool ?? false) ? "실행 중" : "종료됨")\n손쉬운 사용 권한: \(AXIsProcessTrusted() ? "허용됨" : "설정 필요")\nCLI 버전: \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "unknown") · Apple Silicon"
     }
     func alert(_ message: String, error: Bool = false) {
         let alert = NSAlert(); alert.messageText = error ? "작업을 완료하지 못했습니다" : "완료"
         alert.informativeText = message; alert.runModal()
     }
     @objc func permission() {
+        let installed = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications/KakaoTalk CLI.app")
+        guard !isAppTranslocated(Bundle.main.bundleURL),
+              Bundle.main.bundleURL.standardizedFileURL == installed.standardizedFileURL else {
+            alert("임시·다른 경로의 앱에는 권한을 요청하지 않았습니다. Finder로 앱을 ~/Applications에 직접 설치·교체한 뒤 그 위치의 앱을 열어 권한을 설정하세요.", error: true)
+            return
+        }
         // Permission is granted manually by the human in System Settings.
         let options = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true] as CFDictionary
         _ = AXIsProcessTrustedWithOptions(options)
@@ -79,23 +86,16 @@ final class Installer: NSObject, NSApplicationDelegate {
         }
         details.stringValue = "시스템 설정 → 개인정보 보호 및 보안 → 손쉬운 사용에서 이 앱을 추가하고 켜세요. 돌아온 뒤 ‘상태 다시 검사’를 누르세요."
     }
-    @objc func installApp() {
-        let source = Bundle.main.bundleURL
-        let destination = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications/KakaoTalk CLI.app")
-        if source.standardizedFileURL == destination.standardizedFileURL { alert("이미 사용자 앱 폴더에 설치되어 있습니다."); return }
+    @objc func showInstallFolder() {
+        let directory = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Applications")
         do {
-            try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
-            if FileManager.default.fileExists(atPath: destination.path) {
-                throw Failure("INSTALL_EXISTS", "기존 KakaoTalk CLI.app이 있습니다. 기존 앱을 보관하거나 이동한 뒤 다시 설치하세요.")
-            }
-            try FileManager.default.copyItem(at: source, to: destination)
-            broker?.stop()
-            let launch = Process()
-            launch.executableURL = URL(fileURLWithPath: "/usr/bin/open")
-            launch.arguments = ["-n", destination.path]
-            try launch.run()
-            NSApp.terminate(nil)
-        } catch { alert((error as? Failure)?.message ?? error.localizedDescription, error: true) }
+            try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            NSWorkspace.shared.open(directory)
+        } catch { alert(error.localizedDescription, error: true) }
+    }
+    @objc func installApp() {
+        showInstallFolder()
+        alert("열린 사용자 앱 폴더(~/Applications)에 압축 푼 KakaoTalk CLI.app을 Finder로 직접 드래그하세요. 시스템 /Applications와 다릅니다.\n\n업데이트: 이전 제어 앱을 종료한 뒤 같은 위치의 앱을 Finder ‘대치’로 교체하세요. CLI·스킬 링크는 그대로 유지됩니다. 새 앱을 열고 서명 방식에 따라 손쉬운 사용 권한을 다시 확인하세요.\n\n이미 설치된 앱도 AppTranslocation으로 실행되면 종료 후 Finder로 다른 사용자 폴더로 옮겼다가 ~/Applications로 되돌리세요. 이 도구는 앱을 프로그램으로 복사하거나 보안 속성을 제거하지 않습니다.")
     }
     @objc func installTools() {
         let home = FileManager.default.homeDirectoryForCurrentUser

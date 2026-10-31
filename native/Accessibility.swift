@@ -67,7 +67,7 @@ func waitFor<T>(failureCode: String = "UI_TIMEOUT",
 
 final class KakaoAX {
     let app: NSRunningApplication
-    let root: AXUIElement
+    var root: AXUIElement
     let expiresAt: Double
     let stillConnected: () -> Bool
     init(operation: String, allowUntested: Bool = false, expiresAt: Double = Date().timeIntervalSince1970 + 20,
@@ -110,16 +110,39 @@ final class KakaoAX {
                               placeholder: string(element, kAXPlaceholderValueAttribute),
                               value: string(element, kAXValueAttribute)) }
     }
-    func roomWindow(_ name: String) throws -> AXUIElement {
-        // Kakao can expose no AXWindows while inactive. Refresh after activation.
+    func activatedWindows() throws -> [AXUIElement] {
         try activate()
-        let matches = windows().filter { string($0, kAXTitleAttribute) == name && composer($0) != nil }
-        guard matches.count == 1 else {
-            let titles = windows().map { string($0, kAXTitleAttribute) }
-            let named = windows().filter { string($0, kAXTitleAttribute) == name }.count
-            throw Failure("ROOM_NOT_OPEN", "채팅창 판별 실패: \(name) (동일 제목 \(named)개, 입력창 확인 \(matches.count)개, 열린 창: \(titles))")
+        do {
+            return try availableWindows(probe: {
+                try self.requireFreshRequest()
+                // Retry with a new application element rather than retaining an
+                // empty response from the old handle. This does not switch Spaces.
+                self.root = AXUIElementCreateApplication(self.app.processIdentifier)
+                AXUIElementSetMessagingTimeout(self.root, 0.5)
+                let snapshot = self.windows()
+                AXUIElementSetMessagingTimeout(self.root, 2)
+                try self.requireFreshRequest()
+                return snapshot
+            }, pause: {
+                try self.requireFreshRequest()
+                RunLoop.current.run(until: Date().addingTimeInterval(0.2))
+            })
+        } catch WindowAvailabilityFailure.windowsUnavailable {
+            throw Failure("WINDOWS_UNAVAILABLE", "카카오톡의 접근성 창 목록을 확인하지 못했습니다. 다른 Space·전체 화면·최소화 상태 등이 원인일 수 있습니다. 카카오톡이 있는 Space로 직접 전환하고 전체 화면을 종료하거나 최소화한 창을 복원한 뒤 chat current를 다시 실행하세요. 채팅방 검색이나 전송은 자동으로 다시 실행하지 않았습니다.")
         }
-        return matches[0]
+    }
+    func roomWindow(_ name: String) throws -> AXUIElement {
+        let snapshot = try activatedWindows()
+        do {
+            return try uniqueRoomWindow(in: snapshot) {
+                string($0, kAXTitleAttribute) == name && composer($0) != nil
+            }
+        } catch WindowAvailabilityFailure.roomNotOpen {
+            let titles = snapshot.map { string($0, kAXTitleAttribute) }
+            let named = snapshot.filter { string($0, kAXTitleAttribute) == name }.count
+            let matches = snapshot.filter { string($0, kAXTitleAttribute) == name && composer($0) != nil }.count
+            throw Failure("ROOM_NOT_OPEN", "채팅창 판별 실패: \(name) (동일 제목 \(named)개, 입력창 확인 \(matches)개, 열린 창: \(titles))")
+        }
     }
     func key(_ code: CGKeyCode, flags: CGEventFlags = [], toFrontmost: Bool = false) throws {
         try requireFreshRequest()
@@ -168,7 +191,7 @@ final class KakaoAX {
         }
     }
     func mainWindow() throws -> AXUIElement {
-        try activate()
+        _ = try activatedWindows()
         try key(19, flags: .maskCommand) // Cmd+2: chats, observed in KakaoTalk
         return try waitFor {
             guard let focused = self.focusedWindow(),
@@ -286,8 +309,14 @@ final class KakaoAX {
     func current(_ name: String?) throws -> [String: Any] {
         let window: AXUIElement
         if let name { window = try roomWindow(name) }
-        else if let focused = focusedWindow(), composer(focused) != nil { window = focused }
-        else { throw Failure("NO_CHAT_WINDOW", "활성 채팅창이 없습니다.") }
+        else {
+            let snapshot = try activatedWindows()
+            guard let focused = focusedWindow(), snapshot.contains(where: { CFEqual($0, focused) }),
+                  composer(focused) != nil else {
+                throw Failure("NO_CHAT_WINDOW", "활성 채팅창이 없습니다.")
+            }
+            window = focused
+        }
         guard let input = composer(window) else { throw Failure("COMPOSER_NOT_FOUND", "메시지 입력창 없음") }
         return ["room": string(window, kAXTitleAttribute), "draft": string(input, kAXValueAttribute)]
     }

@@ -245,7 +245,8 @@ def test_file_selection_rejects_missing_file_before_ui(tmp_path):
     assert backend.calls == []
 
 
-def test_broker_mismatch_explains_translocation_without_accepting_it(tmp_path, monkeypatch):
+@pytest.mark.parametrize("same_build", [False, True])
+def test_broker_mismatch_explains_translocation_without_accepting_it(tmp_path, monkeypatch, same_build):
     from cli_anything.kakaotalk.utils.kakaotalk_backend import Backend
     bundle = tmp_path / 'KakaoTalk CLI.app'
     native = bundle / 'Contents/MacOS/KakaoTalkCLI'
@@ -256,7 +257,9 @@ def test_broker_mismatch_explains_translocation_without_accepting_it(tmp_path, m
         def __exit__(self, *args): pass
         def sendall(self, payload): pass
         def recv(self, size):
-            return json.dumps({'ok': True, 'broker_build': 'old',
+            import hashlib
+            build = hashlib.sha256(b'native').hexdigest() if same_build else 'old'
+            return json.dumps({'ok': True, 'broker_build': build,
                 'broker_bundle': '/private/AppTranslocation/uuid/d/KakaoTalk CLI.app',
                 'data': {'accessibility_trusted': True}}).encode() + b'\n'
     backend = Backend(tmp_path)
@@ -266,4 +269,5 @@ def test_broker_mismatch_explains_translocation_without_accepting_it(tmp_path, m
         backend.call('doctor')
     assert error.value.code == 'BROKER_BUILD_MISMATCH'
     assert 'AppTranslocation' in str(error.value)
+    assert 'drag' in str(error.value)
     assert str(bundle) in str(error.value)
