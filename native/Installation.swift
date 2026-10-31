@@ -18,7 +18,7 @@ func installedResources(currentBundle: URL, home: URL) throws -> URL {
           let current = try? Data(contentsOf: currentBundle.appendingPathComponent("Contents/MacOS/KakaoTalkCLI")),
           let target = try? Data(contentsOf: installed.appendingPathComponent("Contents/MacOS/KakaoTalkCLI")),
           current == target else {
-        throw InstallationError("현재 빌드와 동일한 앱을 ~/Applications/KakaoTalk CLI.app에 먼저 설치하세요. 기존 앱이 다른 빌드라면 종료하고 보관·이동한 뒤 설치하세요.")
+        throw InstallationError("현재 빌드와 동일한 앱을 Finder로 ~/Applications/KakaoTalk CLI.app에 직접 드래그하세요. 업데이트는 이전 앱 종료 후 같은 위치의 앱을 Finder 대치로 교체하세요.")
     }
     return installed.appendingPathComponent("Contents/Resources")
 }

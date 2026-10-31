@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.2 — 2026-10-31
+- Replaced programmatic app copy with Finder drag/Replace installation guidance and a user Applications folder button (#7).
+- Added exact KakaoTalk 26.9.0 support for the seven company-tested non-dispatch operations (#8).
+- Added bounded AX window-list recovery and a distinct WINDOWS_UNAVAILABLE diagnosis without navigation/dispatch retries (#9).
+- Added explicit fixed signing-identity configuration and actual signature metadata; stable-certificate TCC retention remains pending company validation (#10).
+
 ## 0.1.1 — 2026-10-27
 - Fixed signed resource filename normalization by using ASCII bundle paths (#1).
 - Fixed installer links to use a matching build in ~/Applications; repair only stale app translocation links and show broker identity diagnostics (#2).

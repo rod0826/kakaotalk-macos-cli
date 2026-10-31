@@ -1,3 +1,25 @@
+# Verification — 0.1.2 (2026-10-31, Asia/Seoul)
+
+- Python core/signing/packaging: **49 passed** (31 core + 18 script tests).
+- All four Swift suites passed: composer/path identity, installation, version/operation policy, and window availability. Full native build passed.
+- Version 26.9.0 was added only for the seven company-reported non-dispatch operations. Unknown future versions and untested dispatch remain blocked by default.
+- Window tests cover transient empty snapshots, bounded failure, mismatched/duplicate room windows and expired requests. Shared AX window availability now gates room access, current state and search navigation. These are offline regression tests; real other-Space recovery remains to be tested on the company desktop.
+- Fresh app and frozen CLI built. Computer Use confirmed the setup window shows 0.1.2, the Finder installation/update controls and complete guidance without clipping. The permission button from the non-installed development path produced the intended refusal alert without requesting Accessibility permission. Existing user app/links/permissions were not replaced.
+- An initial inside-out signing build failed because copying PyInstaller output expanded framework symlinks. A regression fixture reproduced the missing preservation behavior, the copy now preserves symlinks, and a fresh build passed strict signing verification.
+- No actual messages or files were sent, and no TCC permissions, keychain entries, certificates, or security attributes were changed.
+
+## Signing limitation
+
+Read-only `security find-identity -v -p codesigning`, including outside the agent sandbox, found **0 valid identities**. This company ZIP remains **ad-hoc and not notarized**. Explicit identity selection, missing/ambiguous identity rejection without fallback, and actual signing metadata are implemented and tested. A build using a real approved certificate and TCC permission retention between two such builds are **not verified**. Issue #10 is partially addressed and needs an approved identity plus company-Mac validation.
+
+## Packaging and remaining company checks
+
+The final ZIP is verified by extracting with macOS ditto and running `codesign --verify --deep --strict` on the extracted app. The adjacent `.zip.sha256` contains the final archive digest. BUILD.json includes actual signature metadata and executable hashes; the archive never embeds its own final hash. Finder first-install/Replace, Gatekeeper, existing-link repair and other-Space behavior still require company-side retesting. The 0.1.2 guide describes these checks.
+
+## Earlier records
+
+The records below are historical and retain their own dates, test counts and limitations.
+
 # Verification — 0.1.1 (2026-10-27, Asia/Seoul)
 
 ## Current patch validation

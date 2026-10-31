@@ -96,7 +96,10 @@ class Backend:
         if response.get('broker_build') != request['expected_build'] or not isinstance(actual_bundle, str) or unicodedata.normalize('NFC', actual_bundle) != unicodedata.normalize('NFC', request['expected_bundle']):
             translocated = isinstance(actual_bundle, str) and 'AppTranslocation' in Path(actual_bundle).parts
             note = (' AppTranslocation detected. Quit the temporary app, then open '
-                    '~/Applications/KakaoTalk CLI.app in Finder and follow macOS approval prompts.'
+                    'the extracted app folder in Finder, then drag the app into ~/Applications. '
+                    'If the installed app still translocates, quit it and drag it to another user folder '
+                    'and back to ~/Applications using Finder. Preserve the installation path; '
+                    'follow company macOS approval policy. Do not remove quarantine automatically.'
                     if translocated else ' Quit the old app and open the expected app.')
             raise ToolError('BROKER_BUILD_MISMATCH',
                             f'Running broker build/path differs. Expected: {bundle}; '

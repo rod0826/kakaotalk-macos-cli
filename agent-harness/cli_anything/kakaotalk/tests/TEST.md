@@ -23,3 +23,13 @@ Before fixes: installation regression compile failed because the extracted insta
 - Issue #5: test version/operation matrix, unknown versions and unknown commands; 26.8.0 file selection and send remain blocked unless explicitly overridden for compatibility testing.
 
 Company report establishes only the seven non-dispatch operations on 26.8.0; it does not establish file selection or dispatch compatibility. No new real messages/files will be sent during this regression pass. Company-Mac Finder extraction, Gatekeeper and permissions must be retested there with the new artifact.
+
+
+## 0.1.2 company follow-up plan — 2026-10-31
+
+- #7: replace programmatic app copy with Finder installation/update guidance, reveal the exact user Applications folder, preserve fixed-path links and fail-closed broker identity. Extend identity regressions to same-build translocation, not just old-build mismatch.
+- #8: add exactly tested 26.9.0 non-dispatch operations; keep unknown future versions and untested sends blocked.
+- #9: reproduce transient empty window lists with an injected reader, verify bounded retry, refresh AX root, and stop with WINDOWS_UNAVAILABLE when all probes are empty. Test visible wrong-title rooms separately. Never issue search/navigation keys until some AX windows are available.
+- #10: explicit signing identity selection with no silent fallback, actual signing metadata in the build manifest, version consistency checks. No certificate/keychain/trust modifications. TCC permission retention and first-launch company policy require company-side validation with an approved certificate.
+
+This pass does not send real messages or files. Offline tests model window availability; they cannot prove another-Space behavior on the company desktop. A successful retry must still pass exact room/composer/focus checks before edits or dispatch.
