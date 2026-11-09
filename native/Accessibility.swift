@@ -78,7 +78,10 @@ final class KakaoAX {
         guard let app = NSRunningApplication.runningApplications(withBundleIdentifier: kakaoID).first else {
             throw Failure("APP_NOT_RUNNING", "카카오톡을 실행하고 로그인하세요.")
         }
-        let version = app.bundleURL.flatMap { Bundle(url: $0)?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String } ?? "unknown"
+        let version = app.bundleURL.flatMap { readAppVersion(at: $0) } ?? "unknown"
+        if let bundle = app.bundleURL, appNeedsRestart(bundleURL: bundle, launchDate: app.launchDate) {
+            throw Failure("APP_RESTART_REQUIRED", "카카오톡 앱 파일이 실행 후 변경된 것으로 보입니다. 진행 중인 작업을 확인하고 카카오톡을 직접 종료·다시 실행한 뒤 doctor로 재검사하세요. 호환성 예외 옵션도 이 검사를 생략하지 않습니다.")
+        }
         guard isOperationSupported(version: version, operation: operation) || allowUntested else {
             throw Failure("UNTESTED_VERSION", "현재 버전 \(version)에서 \(operation)은 검증되지 않았습니다. doctor의 supported_operations와 버전별 안내를 확인하세요. 별도 호환성 테스트에 한해 --allow-untested-version을 사용하세요.")
         }
@@ -445,17 +448,21 @@ final class KakaoAX {
 }
 
 func diagnostic() -> [String: Any] {
-    let url = NSWorkspace.shared.urlForApplication(withBundleIdentifier: kakaoID)
-    let version = url.flatMap { Bundle(url: $0)?.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String }
+    let runningApp = NSRunningApplication.runningApplications(withBundleIdentifier: kakaoID).first
+    let url = runningApp?.bundleURL ?? NSWorkspace.shared.urlForApplication(withBundleIdentifier: kakaoID)
+    let version = url.flatMap { readAppVersion(at: $0) }
+    let restart = runningApp != nil && url.map { appNeedsRestart(bundleURL: $0, launchDate: runningApp?.launchDate) } == true
     return ["platform": "macOS", "architecture": "arm64", "accessibility_trusted": AXIsProcessTrusted(),
             "app_installed": url != nil, "app_path": url?.path ?? "", "app_version": version ?? "",
+            "app_version_source": "installed_bundle_uncached", "restart_required": restart,
+            "restart_detection": "info_plist_modified_after_launch",
             "tested_app_version": testedVersion, "version_matches": supportedVersions.contains(version ?? ""),
             "supported_app_versions": supportedVersions,
             "supported_operations": supportedOperations(version: version ?? ""),
             "dispatch_supported": isOperationSupported(version: version ?? "", operation: "send"),
             "broker_bundle": Bundle.main.bundleURL.path,
             "broker_translocated": isAppTranslocated(Bundle.main.bundleURL),
-            "running": !NSRunningApplication.runningApplications(withBundleIdentifier: kakaoID).isEmpty,
+            "running": runningApp != nil,
             "backend": "native-AXUIElement", "background_supported": false]
 }
 
