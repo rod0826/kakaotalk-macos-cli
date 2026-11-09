@@ -33,3 +33,14 @@ Company report establishes only the seven non-dispatch operations on 26.8.0; it 
 - #10: explicit signing identity selection with no silent fallback, actual signing metadata in the build manifest, version consistency checks. No certificate/keychain/trust modifications. TCC permission retention and first-launch company policy require company-side validation with an approved certificate.
 
 This pass does not send real messages or files. Offline tests model window availability; they cannot prove another-Space behavior on the company desktop. A successful retry must still pass exact room/composer/focus checks before edits or dispatch.
+
+
+## 0.1.3 plan — 2026-11-09
+
+- Reproduce stale metadata with a primed Foundation Bundle and rewritten Info.plist; fresh reader must see the new version. Cover malformed/missing metadata and restart timestamp limits.
+- Verify release/Python metadata disagreement fails before prior app deletion.
+- Verify final archive sidecar, extracted app signature, manifest digests/version/actual signature metadata; reject tampering.
+- Live suite checks restart readiness, ten repeated reads and either verified file selection or the expected UNTESTED_VERSION rejection according to capabilities. It never sends, overrides version guards, or skips unsupported-capability checks.
+- Company issue evidence remains the October26.9.0 report. No new0.1.2 company test results were found in the public API on November9. Certificate TCC retention and actual26.9.0 dispatch remain pending.
+
+0.1.3 executed results: 71 Python regressions and five Swift suites pass. The native source backend passed the seven26.9.0 non-dispatch operations including ten reads in the user-authorized self-chat; no messages/files sent. That live run did not use frozen CLI broker IPC. Fresh app build, strictsignature, finalZIP --verify andCLIversion0.1.3 smoke passed. ZIP symlink traversal/duplicates and release buildcounter4 are covered.

@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.3 — 2026-11-09
+- Read KakaoTalk version without stale Bundle cache and report its on-disk source.
+- Detect app plist changes after launch and require a user-controlled restart before UI actions; compatibility overrides do not bypass this guard.
+- Validate Python/app/release metadata before building; keep an explicit monotonic bundle build counter alongside VERSION.
+- Add final ZIP verification of checksum, extracted signature and manifest values.
+- Exercise ten repeated reads in the live suite and verify unsupported file selection is blocked without bypassing the version policy.
+
 ## 0.1.2 — 2026-10-31
 - Replaced programmatic app copy with Finder drag/Replace installation guidance and a user Applications folder button (#7).
 - Added exact KakaoTalk 26.9.0 support for the seven company-tested non-dispatch operations (#8).
