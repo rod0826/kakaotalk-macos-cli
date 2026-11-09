@@ -1,5 +1,6 @@
 """Build a local arm64 .app with a frozen, agent-neutral CLI."""
 import argparse
+import ast
 import os
 import re
 import plistlib
@@ -77,10 +78,46 @@ def copy_frozen_cli(source, destination):
     shutil.copytree(source, destination, symlinks=True)
 
 
+def release_version(root=None):
+    root = ROOT if root is None else Path(root)
+    version = (root/'VERSION').read_text().strip()
+    if not re.fullmatch(r'(0|[1-9][0-9]{0,3})\.(0|[1-9][0-9]?)\.(0|[1-9][0-9]?)', version):
+        raise ValueError('VERSION must contain a numeric major.minor.patch supported by CFBundleVersion')
+    package_tree = ast.parse((root/'agent-harness/cli_anything/kakaotalk/__init__.py').read_text())
+    declared = [node.value.value for node in package_tree.body
+                if isinstance(node, ast.Assign) and isinstance(node.value, ast.Constant)
+                and any(isinstance(target, ast.Name) and target.id == '__version__'
+                        for target in node.targets)]
+    setup_tree = ast.parse((root/'agent-harness/setup.py').read_text())
+    setup_versions = [keyword.value.value for node in ast.walk(setup_tree)
+                      if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                      and node.func.id == 'setup'
+                      for keyword in node.keywords
+                      if keyword.arg == 'version' and isinstance(keyword.value, ast.Constant)]
+    if declared != [version] or setup_versions != [version]:
+        raise ValueError(f'Release version mismatch: VERSION={version}, '
+                         f'Python __version__={declared}, setup.py={setup_versions}')
+    return version
+
+
+def bundle_versions(root=None):
+    version = release_version(root)
+    root = ROOT if root is None else Path(root)
+    try:
+        number = (root/'BUILD_VERSION').read_text().strip()
+    except OSError as error:
+        raise ValueError('BUILD_VERSION must exist before building') from error
+    if not re.fullmatch(r'[1-9][0-9]{0,3}', number):
+        raise ValueError('BUILD_VERSION must be a positive decimal integer of at most four digits')
+    return {'CFBundleShortVersionString': version, 'CFBundleVersion': number}
+
+
 def main(argv=None):
     # Resolve before deleting a prior build. A requested unavailable certificate
     # must fail without silently emitting an ad-hoc release.
-    identity = resolve_signing_identity(signing_argument(argv))
+    requested_identity = signing_argument(argv)
+    versions = bundle_versions()
+    identity = resolve_signing_identity(requested_identity)
     (ROOT/'build').mkdir(exist_ok=True)
     # Remove stale signed resources from earlier builds before signing.
     if APP.exists():
@@ -113,7 +150,7 @@ def main(argv=None):
         plistlib.dump({'CFBundleIdentifier':'local.kakaotalk-cli',
             'CFBundleName':'KakaoTalk CLI','CFBundleDisplayName':'KakaoTalk CLI',
             'CFBundleExecutable':'KakaoTalkCLI','CFBundlePackageType':'APPL',
-            'CFBundleShortVersionString':(ROOT/'VERSION').read_text().strip(),'CFBundleVersion':'3',
+            **versions,
             'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True,
             'NSAccessibilityUsageDescription':'카카오톡에서 요청한 채팅방 검색, 초안 입력과 명시적으로 지정한 전송을 수행합니다.'},stream)
     for path in APP.rglob('*'):

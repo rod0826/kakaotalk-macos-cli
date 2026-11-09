@@ -1,3 +1,27 @@
+# Verification — 0.1.3 (2026-11-09, Asia/Seoul)
+
+## Observed latest-version behavior
+
+The on-disk KakaoTalk app is 26.9.0. The existing long-lived development broker's doctor still reported26.5.0, while a fresh native helper using the new uncached reader reported26.9.0 and restart_required:false. This is the reason for replacing Bundle metadata cache reads. app_version describes the installed bundle, not verified loaded executable code; the restart timestamp check is conservative and can miss preserved timestamps or flag future timestamps.
+
+With explicit user authorization for their own memo room, the new native source backend passed diagnostic26.9.0, repeated nonexistent search filtering, exact room resolution, current state, synthetic draft write/read/restore, ten consecutive loaded-history reads, and file chooser open/cancel. No messages or files were sent. Chat contents and personal room/path data are not included here. This was direct native execution; it is not a successful frozen CLI/broker IPC test or proof of other-Space recovery.
+
+## Release checks
+
+Python core, release metadata, signing and ZIP checks: 71 passed (31 core + 40 script tests). The one warning is expected while constructing a deliberately duplicated ZIP entry for a rejection test. All five Swift suites pass: composer/path identity, installation, version policy, window availability, uncached app metadata. A fresh arm64 app with version0.1.3/build4 passes strict signature verification. The build number increases from prior3; VERSION and BUILD_VERSION serve different purposes. Final ZIP verification checks its external digest, safe entry/link paths, actual extracted codesign identity, manifest executable hashes and app/release/build versions.
+
+The standalone CLI version smoke test confirms0.1.3. Production installed CLI transport still requires the dedicated app permission, stable installation path and company-side retesting. Existing installed development apps, symlinks and permissions were not replaced.
+
+## Open limits
+
+No usable code-signing certificate exists in this environment, so the new company ZIP remains ad-hoc and not notarized. Certificate selection is implemented, but TCC continuity between two builds signed by the same certificate is not verified. No26.9.0 file selection or dispatch was tested or newly enabled; the seven company-reported non-dispatch operations remain the default scope. Other-Space/fullscreen/minimized window recovery requires company-side verification.
+
+The public issues API shows no new issues or0.1.2 company retest comments after the October report. See [issue status](docs/issue-status.md). This is a0.1.3 improvement release, not a completed1.0 production certification.
+
+## Historical records
+
+The following records describe earlier versions and keep their own counts and dates.
+
 # Verification — 0.1.2 (2026-10-31, Asia/Seoul)
 
 - Python core/signing/packaging: **49 passed** (31 core + 18 script tests).

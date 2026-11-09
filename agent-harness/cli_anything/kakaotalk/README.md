@@ -10,7 +10,7 @@
 ## 설치 및 업데이트
 
 1. ZIP을 Finder로 푼 뒤, **앱을 먼저 실행하지 말고** `KakaoTalk CLI.app`을 Finder로 **사용자 앱 폴더 `~/Applications`에 직접 드래그**합니다. Finder의 이동 → 폴더로 이동(Shift+Cmd+G)에 `~/Applications`를 입력합니다. 시스템 `/Applications`와 구분하세요. 폴더가 없으면 홈 폴더 안에 `Applications`를 만듭니다.
-2. 업데이트라면 이전 제어 앱을 종료하고 같은 위치의 앱을 Finder **대치**로 교체합니다. CLI·스킬 링크와 상태 폴더는 유지합니다. 0.1.2 앱의 **Finder로 설치·업데이트 안내** 및 **사용자 앱 폴더를 Finder에서 보기** 버튼은 이 과정을 안내하며 앱을 프로그램으로 복사하지 않습니다.
+2. 업데이트라면 이전 제어 앱을 종료하고 같은 위치의 앱을 Finder **대치**로 교체합니다. CLI·스킬 링크와 상태 폴더는 유지합니다. 0.1.3 앱의 **Finder로 설치·업데이트 안내** 및 **사용자 앱 폴더를 Finder에서 보기** 버튼은 이 과정을 안내하며 앱을 프로그램으로 복사하지 않습니다.
 3. 설치된 앱을 Finder에서 열고 회사 정책에 따른 macOS 개별 앱 승인 절차를 진행합니다. **손쉬운 사용 권한 설정 열기**에서 해당 설치 앱만 추가·허용합니다. 앱 경로나 임시 서명이 바뀌면 기존 허용이 켜져 있어도 다시 설정해야 할 수 있습니다.
 4. **CLI + Codex·Claude Code 스킬 설치**를 누릅니다. 새 대화부터 사용하세요.
 
@@ -49,7 +49,7 @@ cli-anything-kakaotalk --json --dry-run message send \
 
 `file send --room NAME PATH --confirm-room NAME --request-id ID`는 **실험 기능**입니다. 파일 선택창의 선택된 전체 파일 URL과 파일 해시를 확인한 뒤 Open을 한 번 실행합니다. 선택 URL을 확인할 수 없으면 중단합니다. 추가 확인창을 추측해 클릭하지 않습니다. 메시지·파일 실제 발송은 별도 사용자 승인을 받은 실전 검증 전까지 검증 완료로 표시하지 않습니다.
 
-명령 없이 실행하면 메모리 내 이력만 사용하는 REPL이 열립니다. `exit` 또는 `quit`로 종료합니다. JSON 전역 옵션은 명령 앞에 둡니다. `--json` 사용 시 작업 결과는 `{ok:true,data:{...}}`, 오류는 `{ok:false,error:{code,message}}`와 종료 코드 2입니다. `doctor`의 `ok:true`는 검사 성공을 뜻하며, 준비 상태는 `accessibility_trusted`, `running`, `version_matches`, `supported_operations`, `dispatch_supported`를 확인해야 합니다. `version_matches:true`도 모든 명령이 검증됐다는 뜻은 아닙니다.
+명령 없이 실행하면 메모리 내 이력만 사용하는 REPL이 열립니다. `exit` 또는 `quit`로 종료합니다. JSON 전역 옵션은 명령 앞에 둡니다. `--json` 사용 시 작업 결과는 `{ok:true,data:{...}}`, 오류는 `{ok:false,error:{code,message}}`와 종료 코드 2입니다. `doctor`의 `ok:true`는 검사 성공을 뜻하며, 준비 상태는 `accessibility_trusted`, `running`, `version_matches`, `restart_required`, `supported_operations`, `dispatch_supported`를 확인해야 합니다. `version_matches:true`도 모든 명령이 검증됐다는 뜻은 아닙니다.
 
 CLI는 같은 사용자만 연결할 수 있는 로컬 Unix 소켓으로 전용 앱에 요청합니다. 접근성 권한은 이 앱에만 필요하며, ChatGPT나 터미널 전체에 부여할 필요가 없습니다. 명령 실행 시 전용 앱이 자동 실행될 수 있고 종료 전까지 요청을 받을 준비 상태로 남습니다. 로그인 항목·상주 데몬·수신 감시 서비스는 설치하지 않습니다. 임시 요청도 파일로 저장하지 않습니다.
 
@@ -71,7 +71,7 @@ python3.12 -m venv .venv
 .venv/bin/python -m pip install --no-build-isolation --no-deps -e agent-harness
 .venv/bin/python scripts/build.py
 .venv/bin/python scripts/package.py
-(cd dist && shasum -a 256 -c KakaoTalk-CLI-0.1.2-company-test-macOS-arm64.zip.sha256)
+(cd dist && shasum -a 256 -c KakaoTalk-CLI-0.1.3-company-test-macOS-arm64.zip.sha256)
 .venv/bin/python -m pytest agent-harness/cli_anything/kakaotalk/tests/test_core.py -v
 PATH="$PWD/.venv/bin:$PATH" CLI_ANYTHING_FORCE_INSTALLED=1 KAKAO_TEST_ROOM="나와의 채팅방 실제 이름" \
   .venv/bin/python -m pytest agent-harness/cli_anything/kakaotalk/tests/test_full_e2e.py -v
@@ -80,6 +80,14 @@ PATH="$PWD/.venv/bin:$PATH" CLI_ANYTHING_FORCE_INSTALLED=1 KAKAO_TEST_ROOM="나�
 Xcode Command Line Tools가 빌드에 필요합니다. 실전 테스트는 실제 앱과 권한을 요구하고, 없으면 실패합니다. 실전 테스트는 본인 방에서만 사용하세요. 테스트는 기존 초안을 보존하고 복원하며 메시지·파일을 발송하지 않습니다. 실패 직후에는 파일 선택창이나 테스트 초안이 남았는지 확인하세요. 개발용 패키지 내 실행 파일 대신 배포 앱으로 테스트하려면 PATH 앞에 앱의 `Contents/Resources/cli`를 지정합니다.
 
 자세한 결과는 `VERIFICATION.md`, 개인 경로와 대화 내용을 제외한 테스트 계획·요약은 `agent-harness/cli_anything/kakaotalk/tests/TEST.md`에 기록합니다.
+
+## 0.1.3 업데이트
+
+이 버전은 개선 릴리스입니다. [이슈별 확인 결과와 남은 검증](docs/issue-status.md)을 참고하세요.
+
+카카오톡 26.9.0의 비전송 작업 7개를 지원합니다. 0.1.3은 장기 실행 중인 제어 앱의 오래된 Bundle 캐시 대신 현재 앱 파일에서 버전을 읽습니다. `doctor.app_version_source`는 `installed_bundle_uncached`이며, 디스크 버전이 실행 중인 프로세스의 실제 코드 버전을 증명하지는 않습니다. 앱 파일 수정 시각이 카카오톡 실행 시각보다 늦으면 `restart_required:true`로 표시하고 UI 명령은 `APP_RESTART_REQUIRED`로 중단합니다. 진행 중인 작업을 확인한 뒤 카카오톡을 직접 종료·재실행하세요. 수정 시각을 보존하는 업데이트는 감지하지 못할 수 있습니다.
+
+최종 ZIP을 다시 확인하려면 `.venv/bin/python scripts/package.py --verify dist/KakaoTalk-CLI-0.1.3-company-test-macOS-arm64.zip`을 사용합니다. 체크섬, 추출된 앱 서명, BUILD.json 해시·버전·서명 정보를 대조합니다. 인증서 기반 권한 유지와 26.9.0 실제 전송은 아직 검증되지 않았습니다.
 
 ## 회사 Mac 설치·데스크톱 문제 진단
 

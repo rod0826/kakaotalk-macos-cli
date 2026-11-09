@@ -8,10 +8,13 @@ import hashlib
 import json
 import os
 import plistlib
+import posixpath
+import stat
 from pathlib import Path
 import shutil
 import subprocess
 import tempfile
+import unicodedata
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -56,9 +59,68 @@ def verify_ascii_paths(app):
             raise ValueError(f'Signed bundle paths must be ASCII: {path.relative_to(app)}')
 
 
+def verify_bundle_manifest(app):
+    manifest = json.loads((app.parent/'BUILD.json').read_text())
+    with (app/'Contents/Info.plist').open('rb') as stream:
+        info = plistlib.load(stream)
+    if (manifest['version'] != info['CFBundleShortVersionString']
+            or manifest['bundle_version'] != info['CFBundleVersion']):
+        raise ValueError('Archive manifest/app version mismatch')
+    for key, path in [('native_sha256', app/'Contents/MacOS/KakaoTalkCLI'),
+                      ('cli_sha256', app/'Contents/Resources/cli/cli-anything-kakaotalk')]:
+        if manifest[key] != sha256(path):
+            raise ValueError(f'Archive manifest {key} mismatch')
+    if manifest['signature'] != signing_metadata(app):
+        raise ValueError('Archive manifest signing metadata mismatch')
+    return manifest
+
+
+def verify_release(archive):
+    archive = Path(archive)
+    sidecar = Path(str(archive)+'.sha256').read_text(encoding='ascii').strip()
+    expected = f'{sha256(archive)}  {archive.name}'
+    if sidecar != expected:
+        raise ValueError('Final archive checksum or sidecar filename mismatch')
+    manifest = verify_extracted_archive(archive)
+    if archive.name != f'KakaoTalk-CLI-{manifest["version"]}-company-test-macOS-arm64.zip':
+        raise ValueError('Archive filename/version mismatch')
+    return manifest
+
+
 def verify_extracted_archive(archive):
     # Use the system extractor, independently of our archive writer. It preserves
     # framework symlinks; Finder/Archive Utility use the same ZIP conventions.
+    # Reject path traversal and escaping symlinks before calling a system extractor.
+    with zipfile.ZipFile(archive) as zipped:
+        # Validate the entire namespace before extraction, independent of ZIP
+        # ordering. Default macOS filesystems can alias case/NFC variants.
+        entries = []
+        names = set()
+        symlinks = set()
+        for item in zipped.infolist():
+            if item.filename.startswith('/') or '..' in Path(item.filename).parts:
+                raise ValueError('Unsafe archive entry path')
+            canonical = unicodedata.normalize('NFC', posixpath.normpath(item.filename).casefold())
+            if canonical in names:
+                raise ValueError('Unsafe archive duplicate filesystem path')
+            names.add(canonical)
+            entries.append((item, canonical))
+            if stat.S_ISLNK(item.external_attr >> 16):
+                symlinks.add(canonical)
+        for item, canonical in entries:
+            parts = canonical.split('/')
+            if any('/'.join(parts[:index]) in symlinks for index in range(1, len(parts))):
+                raise ValueError('Unsafe archive entry beneath symlink parent')
+            if stat.S_ISLNK(item.external_attr >> 16):
+                target = zipped.read(item).decode('utf-8')
+                # Our release format needs only downward/current-directory
+                # framework aliases. Forbid parent components even when their
+                # lexical normalization appears inside the extraction root:
+                # chained symlinks can make that lexical result misleading.
+                if '..' in target.split('/'):
+                    raise ValueError('Unsupported parent-traversal symlink target in release archive')
+                if target.startswith('/'):
+                    raise ValueError('Unsafe absolute archive symlink target')
     with tempfile.TemporaryDirectory(prefix='kakaotalk-zip-check-') as directory:
         subprocess.run(['/usr/bin/ditto', '-x', '-k', str(archive), directory], check=True)
         apps = list(Path(directory).glob('*/KakaoTalk CLI.app'))
@@ -66,6 +128,7 @@ def verify_extracted_archive(archive):
             raise ValueError('Expected exactly one app in the extracted archive')
         verify_ascii_paths(apps[0])
         verify_signature(apps[0])
+        return verify_bundle_manifest(apps[0])
 
 
 def write_archive(stage, archive):
@@ -89,9 +152,13 @@ def package(root=ROOT, app=None, output=None):
     verify_ascii_paths(app)
     verify_signature(app)
     with (app/'Contents/Info.plist').open('rb') as stream:
-        app_version = plistlib.load(stream)['CFBundleShortVersionString']
+        app_info = plistlib.load(stream)
+        app_version = app_info['CFBundleShortVersionString']
     if app_version != VERSION:
         raise ValueError(f'App version {app_version} does not match release version {VERSION}')
+    expected_build = (root/'BUILD_VERSION').read_text().strip()
+    if app_info['CFBundleVersion'] != expected_build:
+        raise ValueError('App CFBundleVersion does not match BUILD_VERSION')
     signature = signing_metadata(app)
     output.mkdir(parents=True, exist_ok=True)
     name = f'KakaoTalk-CLI-{VERSION}-company-test-arm64'
@@ -108,6 +175,7 @@ def package(root=ROOT, app=None, output=None):
         shutil.copy2(root/'docs/signing.md', stage/'signing.md')
         manifest = {
             'version': VERSION,
+            'bundle_version': app_info['CFBundleVersion'],
             'architecture': 'arm64',
             'native_sha256': sha256(app/'Contents/MacOS/KakaoTalkCLI'),
             'cli_sha256': sha256(app/'Contents/Resources/cli/cli-anything-kakaotalk'),
@@ -138,10 +206,15 @@ def package(root=ROOT, app=None, output=None):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument('--verify', type=Path, help='Verify an existing ZIP plus its adjacent .sha256, manifest, extracted signature and versions')
     parser.add_argument('--app', type=Path, default=ROOT/'dist/KakaoTalk CLI.app')
     parser.add_argument('--output', type=Path, default=ROOT/'dist')
     args = parser.parse_args()
-    print(package(app=args.app, output=args.output))
+    if args.verify:
+        manifest = verify_release(args.verify)
+        print(f'Verified {args.verify.name}: version {manifest["version"]}, {manifest["signature"]["type"]}')
+    else:
+        print(package(app=args.app, output=args.output))
 
 
 if __name__ == '__main__':

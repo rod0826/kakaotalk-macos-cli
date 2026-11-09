@@ -35,6 +35,7 @@ def test_installed_help_and_real_doctor():
     status = run('doctor')
     assert status['app_installed'] and status['running']
     assert status['accessibility_trusted'] and status['version_matches'], status
+    assert not status.get('restart_required', False), status
 
 
 def test_search_open_draft_restore_and_file_picker(tmp_path):
@@ -78,9 +79,19 @@ def test_search_really_filters_and_repeated_query_is_applied():
 
 def test_select_file_and_cancel_without_dispatch(tmp_path):
     room = os.environ['KAKAO_TEST_ROOM']
-    run('chat', 'open', room)
+    status = run('doctor')
     sample = tmp_path / '선택 검사 공백.zip'
     sample.write_bytes(b'file-selection-regression-no-dispatch')
+    if 'supported_operations' in status and 'file-select' not in status['supported_operations']:
+        # A known version may support the seven non-dispatch operations without
+        # validating selection. Check the guard instead of overriding or skipping it.
+        completed = subprocess.run(CLI + ['--json', 'file', 'select', '--room', room, str(sample)],
+                                   text=True, capture_output=True, timeout=40)
+        result = json.loads(completed.stdout)
+        assert completed.returncode == 2 and not result['ok'], result
+        assert result['error']['code'] == 'UNTESTED_VERSION', result
+        return
+    run('chat', 'open', room)
     try:
         result = run('file', 'select', '--room', room, str(sample))
         assert result['selection_verified'] and result['open_enabled'], result
@@ -91,3 +102,11 @@ def test_select_file_and_cancel_without_dispatch(tmp_path):
         assert result['dispatch_attempted'] is False and result['sent'] is False
     finally:
         assert run('file', 'cancel', '--room', room)['file_dialog_open'] is False
+
+
+def test_repeated_read_uses_current_room_window():
+    room = os.environ['KAKAO_TEST_ROOM']
+    run('chat', 'open', room)
+    for _ in range(10):
+        result = run('chat', 'read', '--room', room, '--limit', '5')
+        assert result['room'] == room and result['complete_history'] is False

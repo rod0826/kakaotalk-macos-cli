@@ -21,7 +21,7 @@ def fixture_tree(tmp_path):
     native.parent.mkdir(parents=True)
     native.write_bytes(b'native')
     with (app/'Contents/Info.plist').open('wb') as stream:
-        plistlib.dump({'CFBundleShortVersionString': release.VERSION}, stream)
+        plistlib.dump({'CFBundleShortVersionString': release.VERSION, 'CFBundleVersion': '4'}, stream)
     cli = app/'Contents/Resources/cli/cli-anything-kakaotalk'
     cli.parent.mkdir(parents=True)
     cli.write_bytes(b'cli')
@@ -30,6 +30,7 @@ def fixture_tree(tmp_path):
         (root/name).write_text(name)
     (root/'THIRD_PARTY_LICENSES').mkdir()
     (root/'THIRD_PARTY_LICENSES/LICENSE.txt').write_text('third party')
+    (root/'BUILD_VERSION').write_text('4\n')
     (root/'docs').mkdir()
     (root/'docs/company-mac-test.md').write_text('test instructions')
     (root/'docs/version-support.md').write_text('version scope')
@@ -51,7 +52,8 @@ def test_final_checksum_and_clean_manifest(tmp_path, monkeypatch):
     with zipfile.ZipFile(archive) as bundle:
         prefix = f'KakaoTalk-CLI-{release.VERSION}-company-test-arm64/'
         manifest = json.loads(bundle.read(prefix+'BUILD.json'))
-        assert manifest['version'] == '0.1.2'
+        assert manifest['version'] == release.VERSION
+        assert manifest['bundle_version'] == '4'
         assert manifest['signature']['type'] == 'certificate'
         assert manifest['signature']['designated_requirement'] == 'identifier test and certificate leaf = H"ABC"'
         assert manifest['native_sha256'] == hashlib.sha256(b'native').hexdigest()
@@ -170,3 +172,95 @@ def test_app_version_cannot_be_mislabeled_by_packaging(tmp_path, monkeypatch):
     monkeypatch.setattr(release, 'verify_signature', lambda path: None)
     with pytest.raises(ValueError, match='does not match'):
         release.package(root=root, app=app, output=root/'dist')
+
+
+def test_release_verify_checks_sidecar_before_extraction(tmp_path, monkeypatch):
+    archive = tmp_path/'test.zip'
+    archive.write_bytes(b'zip payload')
+    Path(str(archive)+'.sha256').write_text('0'*64+'  test.zip\n')
+    monkeypatch.setattr(release, 'verify_extracted_archive', lambda path: pytest.fail('Must check digest first'))
+    with pytest.raises(ValueError, match='checksum'):
+        release.verify_release(archive)
+
+
+def test_release_verify_accepts_matching_sidecar_and_checks_contents(tmp_path, monkeypatch):
+    archive = tmp_path/f'KakaoTalk-CLI-{release.VERSION}-company-test-macOS-arm64.zip'
+    archive.write_bytes(b'zip payload')
+    Path(str(archive)+'.sha256').write_text(release.sha256(archive)+'  '+archive.name+'\n')
+    checked = []
+    monkeypatch.setattr(release, 'verify_extracted_archive', lambda path: checked.append(path) or {'version': release.VERSION})
+    assert release.verify_release(archive)['version'] == release.VERSION
+    assert checked == [archive]
+
+
+def test_manifest_validation_detects_hash_and_identity_changes(tmp_path, monkeypatch):
+    root, app = fixture_tree(tmp_path)
+    signature = {'type': 'ad-hoc', 'designated_requirement': 'cdhash old'}
+    manifest = {'version': release.VERSION, 'bundle_version': '4',
+                'native_sha256': release.sha256(app/'Contents/MacOS/KakaoTalkCLI'),
+                'cli_sha256': release.sha256(app/'Contents/Resources/cli/cli-anything-kakaotalk'),
+                'signature': signature}
+    (app.parent/'BUILD.json').write_text(json.dumps(manifest))
+    monkeypatch.setattr(release, 'signing_metadata', lambda path: signature)
+    assert release.verify_bundle_manifest(app) == manifest
+    monkeypatch.setattr(release, 'signing_metadata', lambda path: {'type': 'certificate'})
+    with pytest.raises(ValueError, match='signing metadata'):
+        release.verify_bundle_manifest(app)
+    monkeypatch.setattr(release, 'signing_metadata', lambda path: signature)
+    (app/'Contents/MacOS/KakaoTalkCLI').write_bytes(b'tampered')
+    with pytest.raises(ValueError, match='native_sha256'):
+        release.verify_bundle_manifest(app)
+
+
+def unsafe_archive(tmp_path, entries):
+    archive = tmp_path/'unsafe.zip'
+    with zipfile.ZipFile(archive, 'w') as zipped:
+        for name, data, symlink in entries:
+            info = zipfile.ZipInfo(name)
+            info.create_system = 3
+            info.external_attr = (0o120777 if symlink else 0o100644) << 16
+            zipped.writestr(info, data)
+    return archive
+
+
+@pytest.mark.parametrize('entries', [
+    [('root/link', '.', True), ('root/link/escape', '../../outside', True)],
+    [('root/link/file', 'payload', False), ('root/link', '.', True)],
+    [('root/LINK', '.', True), ('root/link/file', 'payload', False)],
+])
+def test_extractor_rejects_entries_beneath_symlink_parents(tmp_path, monkeypatch, entries):
+    archive = unsafe_archive(tmp_path, entries)
+    monkeypatch.setattr(release.subprocess, 'run', lambda *a, **kw: pytest.fail('Extractor must not run'))
+    with pytest.raises(ValueError, match='symlink parent'):
+        release.verify_extracted_archive(archive)
+
+
+@pytest.mark.parametrize('names', [
+    ('root/duplicate', 'root/duplicate'),
+    ('root/Readme', 'root/readme'),
+    ('root/é.txt', 'root/e\u0301.txt'),
+])
+def test_extractor_rejects_duplicate_filesystem_paths(tmp_path, monkeypatch, names):
+    archive = unsafe_archive(tmp_path, [(name, 'payload', False) for name in names])
+    monkeypatch.setattr(release.subprocess, 'run', lambda *a, **kw: pytest.fail('Extractor must not run'))
+    with pytest.raises(ValueError, match='duplicate'):
+        release.verify_extracted_archive(archive)
+
+
+def test_package_rejects_stale_bundle_build_number(tmp_path, monkeypatch):
+    root, app = fixture_tree(tmp_path)
+    (root/'BUILD_VERSION').write_text('5\n')
+    monkeypatch.setattr(release, 'verify_signature', lambda path: None)
+    with pytest.raises(ValueError, match='BUILD_VERSION'):
+        release.package(root=root, app=app, output=root/'dist')
+
+
+@pytest.mark.parametrize('entries', [
+    [('root/p/link', '../..', True), ('root/p/escape', 'link/../outside', True)],
+    [('root/safe', 'payload', False), ('root/p/link', '../safe', True)],
+])
+def test_release_format_rejects_all_parent_traversal_symlink_targets(tmp_path, monkeypatch, entries):
+    archive = unsafe_archive(tmp_path, entries)
+    monkeypatch.setattr(release.subprocess, 'run', lambda *a, **kw: pytest.fail('Extractor must not run'))
+    with pytest.raises(ValueError, match='parent-traversal'):
+        release.verify_extracted_archive(archive)

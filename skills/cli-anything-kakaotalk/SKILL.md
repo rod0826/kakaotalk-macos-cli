@@ -7,6 +7,10 @@ description: macOS 카카오톡 데스크톱에서 채팅방을 검색·열고, 
 
 Use the installed `cli-anything-kakaotalk` executable; if PATH lookup fails, use `~/.local/bin/cli-anything-kakaotalk`. This is a local macOS AXUIElement adapter, not Kakao's official API. Target: Apple Silicon/macOS 14+. KakaoTalk 26.5.0 retains existing capabilities; 26.8.0 and 26.9.0 support only search/open/current/draft/read/file-dialog/file-cancel. File selection and dispatch on 26.8.0/26.9.0 remain unverified and blocked by default. Check doctor.supported_operations; version_matches alone does not mean dispatch is supported. The `.app` installs the common CLI and this same skill in both agents. Login and an unlocked desktop are required; calls may activate KakaoTalk.
 
+## Version freshness
+
+Check doctor.restart_required before UI work. APP_RESTART_REQUIRED means the app plist appears newer than the running KakaoTalk process; guide the human to save/inspect work and restart KakaoTalk, then inspect doctor again. Do not quit the app automatically or use --allow-untested-version to evade this guard. app_version is freshly read from the installed bundle, not proof of the version of already loaded code. Modified timestamps are heuristic and can be preserved by an updater.
+
 ## Inspect first
 
 ```sh
