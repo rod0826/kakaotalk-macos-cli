@@ -67,6 +67,7 @@ func waitFor<T>(failureCode: String = "UI_TIMEOUT",
 
 final class KakaoAX {
     let app: NSRunningApplication
+    let version: String
     var root: AXUIElement
     let expiresAt: Double
     let stillConnected: () -> Bool
@@ -86,6 +87,7 @@ final class KakaoAX {
             throw Failure("UNTESTED_VERSION", "현재 버전 \(version)에서 \(operation)은 검증되지 않았습니다. doctor의 supported_operations와 버전별 안내를 확인하세요. 별도 호환성 테스트에 한해 --allow-untested-version을 사용하세요.")
         }
         self.app = app
+        self.version = version
         self.expiresAt = expiresAt
         self.stillConnected = stillConnected
         root = AXUIElementCreateApplication(app.processIdentifier)
@@ -259,7 +261,7 @@ final class KakaoAX {
         let texts = try headerNodes(row).map { label($0) }.filter { !$0.isEmpty }
         var headers = Array(NSOrderedSet(array: texts)) as? [String] ?? []
         // Only the primary header is the room title; normalize it to the window title.
-        if let first = headers.first { headers[0] = searchRoomTitle(first) }
+        if version == "26.10.0", let first = headers.first { headers[0] = searchRoomTitle(first) }
         return headers
     }
     func search(_ query: String) throws -> [String: Any] {
