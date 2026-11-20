@@ -9,6 +9,10 @@ let companyOperations = Set(["search", "open", "current", "draft", "read", "file
 expect(Set(supportedOperations(version: "26.5.0")) == fullOperations, "26.5.0 must retain all supported operations")
 expect(Set(supportedOperations(version: "26.8.0")) == companyOperations, "26.8.0 must allow only reported non-dispatch operations")
 expect(Set(supportedOperations(version: "26.9.0")) == companyOperations, "26.9.0 must allow only reported non-dispatch operations")
+expect(Set(supportedOperations(version: "26.10.0")) == companyOperations, "26.10.0 must allow only company-tested non-dispatch operations")
+for operation in ["file-select", "send", "file-send"] {
+    expect(!isOperationSupported(version: "26.10.0", operation: operation), "26.10.0 untested operation must stay blocked: \(operation)")
+}
 for operation in companyOperations {
     expect(isOperationSupported(version: "26.9.0", operation: operation), "26.9.0 reported operation must be supported: \(operation)")
     expect(isOperationSupported(version: "26.8.0", operation: operation), "Company-tested operation must be supported: \(operation)")

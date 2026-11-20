@@ -1,4 +1,14 @@
-# Verification — 0.1.3 (2026-11-09, Asia/Seoul)
+# Verification — 0.1.4 (2026-11-20, Asia/Seoul)
+
+The [company laptop report](https://github.com/rod0826/kakaotalk-macos-cli/issues/13) records that KakaoTalk 26.10.0 passed search, open, current, draft/clear, read (ten consecutive calls), and file dialog/cancel on CLI 0.1.4 with the default settings. On CLI 0.1.3, the compatibility override reached the UI but room opening failed because the first search label included a room-type prefix. CLI 0.1.4 strips one of the three known prefixes on 26.10.0. The earlier version paths retain their title handling.
+
+The company report leaves ordinary direct/group room opening, secret-chat prefix behavior, file selection and dispatch unverified. The default policy on 26.10.0 allows the seven non-dispatch operations.
+
+## Local build and packaging
+
+Python core and packaging tests passed (71 tests). Five Swift suites passed: composer and search title identity, installation, version policy, window availability, and app metadata. The rebuilt arm64 app (0.1.4, build 5) passed strict code signature verification. The final ZIP passed the external SHA-256 check and `scripts/package.py --verify`, including extraction, signature, executable hashes and version checks. The build uses an ad-hoc signature.
+
+## Verification — 0.1.3 (2026-11-09, Asia/Seoul)
 
 ## Observed latest-version behavior
 
