@@ -257,7 +257,10 @@ final class KakaoAX {
     }
     func searchHeader(_ row: AXUIElement) throws -> [String] {
         let texts = try headerNodes(row).map { label($0) }.filter { !$0.isEmpty }
-        return Array(NSOrderedSet(array: texts)) as? [String] ?? []
+        var headers = Array(NSOrderedSet(array: texts)) as? [String] ?? []
+        // Only the primary header is the room title; normalize it to the window title.
+        if let first = headers.first { headers[0] = searchRoomTitle(first) }
+        return headers
     }
     func search(_ query: String) throws -> [String: Any] {
         let (_, table) = try searchTable(query)

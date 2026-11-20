@@ -146,10 +146,14 @@ def main(argv=None):
     licenses = resources/'THIRD_PARTY_LICENSES'
     if licenses.exists(): shutil.rmtree(licenses)
     shutil.copytree(ROOT/'THIRD_PARTY_LICENSES', licenses)
+    icon = ROOT/'assets/AppIcon.icns'
+    if icon.exists():
+        shutil.copy2(icon, resources/'AppIcon.icns')
     with (APP/'Contents/Info.plist').open('wb') as stream:
         plistlib.dump({'CFBundleIdentifier':'local.kakaotalk-cli',
             'CFBundleName':'KakaoTalk CLI','CFBundleDisplayName':'KakaoTalk CLI',
             'CFBundleExecutable':'KakaoTalkCLI','CFBundlePackageType':'APPL',
+            **({'CFBundleIconFile':'AppIcon'} if icon.exists() else {}),
             **versions,
             'LSMinimumSystemVersion':'14.0','NSHighResolutionCapable':True,
             'NSAccessibilityUsageDescription':'카카오톡에서 요청한 채팅방 검색, 초안 입력과 명시적으로 지정한 전송을 수행합니다.'},stream)
