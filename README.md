@@ -1,5 +1,11 @@
 # KakaoTalk CLI for macOS — 비공식 실험 프로젝트
 
+> **프로젝트 상태 · 개인 테스트용 최종 버전 0.1.4 (빌드 5) · 2026-11-20 버전 동결**
+>
+> 개인 테스트용 프로젝트의 개발을 0.1.4에서 종료했습니다. 이후 기능 추가, 호환성 업데이트, 새 버전 배포 계획은 없습니다. 동결된 소스는 기존 [`v0.1.4` 태그](https://github.com/rod0826/kakaotalk-macos-cli/tree/v0.1.4)에 보존합니다.
+>
+> **Project status · Final personal test version 0.1.4 (build 5) · Frozen on 2026-11-20.** Development concluded with 0.1.4. No further features, compatibility updates, or releases are planned.
+
 > **비공식 실험용 프로젝트입니다. 카카오의 검토·승인·인증을 받지 않았으며, 카카오가 제공하거나 지원하는 공식 CLI가 아닙니다.**
 > Kakao has not reviewed, approved, or certified this project. It is an unofficial experiment and is not an official Kakao CLI.
 
