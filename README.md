@@ -26,11 +26,11 @@ CLI는 처음 구현하고 검증하는 비용이 있으며, 같은 작업을 �
 ## 설치 및 업데이트
 
 1. ZIP을 Finder로 푼 뒤, **앱을 먼저 실행하지 말고** `KakaoTalk CLI.app`을 Finder로 **사용자 앱 폴더 `~/Applications`에 직접 드래그**합니다. Finder의 이동 → 폴더로 이동(Shift+Cmd+G)에 `~/Applications`를 입력합니다. 시스템 `/Applications`와 구분하세요. 폴더가 없으면 홈 폴더 안에 `Applications`를 만듭니다.
-2. 업데이트라면 이전 제어 앱을 종료하고 같은 위치의 앱을 Finder **대치**로 교체합니다. CLI·스킬 링크와 상태 폴더는 유지합니다. 0.1.3 앱의 **Finder로 설치·업데이트 안내** 및 **사용자 앱 폴더를 Finder에서 보기** 버튼은 이 과정을 안내하며 앱을 프로그램으로 복사하지 않습니다.
+2. 업데이트라면 이전 제어 앱을 종료하고 같은 위치의 앱을 Finder **대치**로 교체합니다. CLI·스킬 링크와 상태 폴더는 유지합니다. 앱의 **Finder로 설치·업데이트 안내** 및 **사용자 앱 폴더를 Finder에서 보기** 버튼은 이 과정을 안내하며 앱을 프로그램으로 복사하지 않습니다.
 3. 설치된 앱을 Finder에서 열고 회사 정책에 따른 macOS 개별 앱 승인 절차를 진행합니다. **손쉬운 사용 권한 설정 열기**에서 해당 설치 앱만 추가·허용합니다. 앱 경로나 임시 서명이 바뀌면 기존 허용이 켜져 있어도 다시 설정해야 할 수 있습니다.
 4. **CLI + Codex·Claude Code 스킬 설치**를 누릅니다. 새 대화부터 사용하세요.
 
-CLI는 Python 런타임을 내장합니다. 배포 앱 사용자에게 Python·Homebrew·Node 설치가 필요하지 않습니다. Apple Silicon/macOS 14 이상용이며, 카카오톡 **26.5.0**의 기존 기능과 **26.8.0·26.9.0**의 검색·열기·초안·읽기·파일 선택창 열기/취소를 지원합니다. 26.8.0·26.9.0의 파일 선택·전송은 아직 검증되지 않아 기본 차단됩니다. `doctor`의 `supported_operations`를 확인하세요. 로컬 임시 서명만 적용됐고 Apple 공증은 받지 않았습니다. 다른 Mac에 배포하려면 정식 서명·공증이 필요합니다. macOS 보안 기능을 자동 해제하지 않습니다.
+CLI는 Python 런타임을 내장합니다. 배포 앱 사용자에게 Python·Homebrew·Node 설치가 필요하지 않습니다. Apple Silicon/macOS 14 이상용이며, 카카오톡 **26.5.0**의 기존 기능과 **26.8.0·26.9.0·26.10.0**의 검색·열기·초안·읽기·파일 선택창 열기/취소를 지원합니다. 26.8.0·26.9.0·26.10.0의 파일 선택·전송은 아직 검증되지 않아 기본 차단됩니다. `doctor`의 `supported_operations`를 확인하세요. 로컬 임시 서명만 적용됐고 Apple 공증은 받지 않았습니다. 다른 Mac에 배포하려면 정식 서명·공증이 필요합니다. macOS 보안 기능을 자동 해제하지 않습니다.
 
 ## 사용
 
@@ -87,7 +87,7 @@ python3.12 -m venv .venv
 .venv/bin/python -m pip install --no-build-isolation --no-deps -e agent-harness
 .venv/bin/python scripts/build.py
 .venv/bin/python scripts/package.py
-(cd dist && shasum -a 256 -c KakaoTalk-CLI-0.1.3-company-test-macOS-arm64.zip.sha256)
+(cd dist && shasum -a 256 -c KakaoTalk-CLI-0.1.4-company-test-macOS-arm64.zip.sha256)
 .venv/bin/python -m pytest agent-harness/cli_anything/kakaotalk/tests/test_core.py -v
 PATH="$PWD/.venv/bin:$PATH" CLI_ANYTHING_FORCE_INSTALLED=1 KAKAO_TEST_ROOM="나와의 채팅방 실제 이름" \
   .venv/bin/python -m pytest agent-harness/cli_anything/kakaotalk/tests/test_full_e2e.py -v
@@ -97,13 +97,15 @@ Xcode Command Line Tools가 빌드에 필요합니다. 실전 테스트는 실�
 
 자세한 결과는 `VERIFICATION.md`, 개인 경로와 대화 내용을 제외한 테스트 계획·요약은 `agent-harness/cli_anything/kakaotalk/tests/TEST.md`에 기록합니다.
 
-## 0.1.3 업데이트
+## 0.1.4 업데이트
 
 이 버전은 개선 릴리스입니다. [이슈별 확인 결과와 남은 검증](docs/issue-status.md)을 참고하세요.
 
-카카오톡 26.9.0의 비전송 작업 7개를 지원합니다. 0.1.3은 장기 실행 중인 제어 앱의 오래된 Bundle 캐시 대신 현재 앱 파일에서 버전을 읽습니다. `doctor.app_version_source`는 `installed_bundle_uncached`이며, 디스크 버전이 실행 중인 프로세스의 실제 코드 버전을 증명하지는 않습니다. 앱 파일 수정 시각이 카카오톡 실행 시각보다 늦으면 `restart_required:true`로 표시하고 UI 명령은 `APP_RESTART_REQUIRED`로 중단합니다. 진행 중인 작업을 확인한 뒤 카카오톡을 직접 종료·재실행하세요. 수정 시각을 보존하는 업데이트는 감지하지 못할 수 있습니다.
+카카오톡 26.10.0에서 비전송 작업 7개를 지원합니다. 검색 결과의 첫 라벨에서 방 종류 접두어 한 개를 제거해 열린 창 제목과 대조합니다. 앱 아이콘을 추가했습니다.
 
-최종 ZIP을 다시 확인하려면 `.venv/bin/python scripts/package.py --verify dist/KakaoTalk-CLI-0.1.3-company-test-macOS-arm64.zip`을 사용합니다. 체크섬, 추출된 앱 서명, BUILD.json 해시·버전·서명 정보를 대조합니다. 인증서 기반 권한 유지와 26.9.0 실제 전송은 아직 검증되지 않았습니다.
+0.1.3부터 제어 앱은 현재 앱 파일에서 버전을 다시 읽습니다. `doctor.app_version_source`는 `installed_bundle_uncached`이며, 디스크 버전이 실행 중인 프로세스의 실제 코드 버전을 증명하지는 않습니다. 앱 파일 수정 시각이 카카오톡 실행 시각보다 늦으면 `restart_required:true`로 표시하고 UI 명령은 `APP_RESTART_REQUIRED`로 중단합니다. 진행 중인 작업을 확인한 뒤 카카오톡을 직접 종료·재실행하세요. 수정 시각을 보존하는 업데이트는 감지하지 못할 수 있습니다.
+
+최종 ZIP을 다시 확인하려면 `.venv/bin/python scripts/package.py --verify dist/KakaoTalk-CLI-0.1.4-company-test-macOS-arm64.zip`을 사용합니다. 체크섬, 추출된 앱 서명, BUILD.json 해시·버전·서명 정보를 대조합니다. 인증서 기반 권한 유지와 26.10.0 실제 전송은 아직 검증되지 않았습니다.
 
 ## 회사 Mac 설치·데스크톱 문제 진단
 
@@ -113,7 +115,7 @@ Xcode Command Line Tools가 빌드에 필요합니다. 실전 테스트는 실�
 
 `WINDOWS_UNAVAILABLE`은 활성화·제한된 재탐색 후에도 접근성 창 목록이 비어 있다는 뜻입니다. 다른 Space/전체 화면/최소화/앱 전환 중일 수 있으나 이 코드만으로 원인을 확정하지 않습니다. 카카오톡 창이 보이는 데스크톱으로 이동하고 전체 화면·최소화를 해제한 뒤 `chat current --room "정확한 제목"`으로 확인하세요. 읽기·초안·파일 작업도 같은 창 검사 경로를 사용합니다. 자동으로 방을 다시 열거나 전송을 재실행하지 않습니다.
 
-카카오톡 26.9.0도 보고된 비전송 작업만 허용합니다. 알려지지 않은 미래 버전은 UI 구조 검증이 없으므로 자동 허용하지 않습니다. 명시적인 `--allow-untested-version`으로 별도 호환성 시험을 할 수 있습니다.
+카카오톡 26.8.0·26.9.0·26.10.0에서는 보고된 비전송 작업을 기본 허용합니다. 알려지지 않은 미래 버전은 UI 구조 검증이 없으므로 자동 허용하지 않습니다. 명시적인 `--allow-untested-version`으로 별도 호환성 시험을 할 수 있습니다.
 
 고정 코드 서명 인증서는 빌드 옵션으로 지정할 수 있습니다. [서명 안내](docs/signing.md)에 설정과 검증 방법을 설명합니다. 같은 인증서·bundle ID·지정 요구사항·경로를 유지해도 회사 TCC 정책에서 권한 유지가 보장되는 것은 아닙니다. 이 개발 환경에는 사용 가능한 서명 인증서가 없어 이번 별도 테스트 ZIP은 **임시 서명·미공증**입니다. 권한 유지 문제는 인증서로 서명한 후 추가 시험이 필요합니다.
 

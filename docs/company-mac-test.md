@@ -1,12 +1,12 @@
-# 회사 맥북 테스트 — 0.1.3
+# 회사 맥북 테스트 — 0.1.4
 
-카카오의 검토·승인·인증을 받지 않은 비공식 실험 프로젝트입니다. Apple Silicon, macOS 14 이상용 별도 전달 ZIP이며 GitHub Releases에는 게시하지 않습니다. macOS 14는 빌드 최소값이며 회사 보고 환경은 macOS 26.6.2, 카카오톡 26.9.0입니다.
+카카오의 검토·승인·인증을 받지 않은 비공식 실험 프로젝트입니다. Apple Silicon, macOS 14 이상용 별도 전달 ZIP이며 GitHub Releases에는 게시하지 않습니다. macOS 14는 빌드 최소값이며 이번 회사 노트북 보고의 카카오톡 버전은 26.10.0입니다.
 
 ## 압축 및 설치
 
-1. 새 `KakaoTalk-CLI-0.1.3-company-test-macOS-arm64.zip`과 같은 이름의 `.zip.sha256` 파일을 같은 폴더에 둡니다. 해당 폴더에서 `shasum -a 256 -c KakaoTalk-CLI-0.1.3-company-test-macOS-arm64.zip.sha256`이 `OK`인지 확인합니다. ZIP 내부 `BUILD.json`은 실행 파일 해시·버전·실제 서명 정보를 기록하며 ZIP 자체의 해시는 포함하지 않습니다.
+1. 새 `KakaoTalk-CLI-0.1.4-company-test-macOS-arm64.zip`과 같은 이름의 `.zip.sha256` 파일을 같은 폴더에 둡니다. 해당 폴더에서 `shasum -a 256 -c KakaoTalk-CLI-0.1.4-company-test-macOS-arm64.zip.sha256`이 `OK`인지 확인합니다. ZIP 내부 `BUILD.json`은 실행 파일 해시·버전·실제 서명 정보를 기록하며 ZIP 자체의 해시는 포함하지 않습니다.
 2. Finder로 압축을 풉니다. 추출된 `KakaoTalk CLI.app`에 `codesign --verify --deep --strict "/전체/경로/KakaoTalk CLI.app"`를 실행해 서명을 확인합니다. 안내 파일은 앱 내부 `Contents/Resources/usage-guide.html`입니다.
-3. **앱을 먼저 실행하지 말고** Finder에서 이동 → 폴더로 이동(Shift+Cmd+G)에 `~/Applications`를 입력합니다. 홈 폴더의 사용자 앱 폴더이며 시스템 `/Applications`와 다릅니다. 없으면 홈 폴더 안에 `Applications` 폴더를 만듭니다. 압축 푼 `KakaoTalk CLI.app`을 그 폴더로 **Finder에서 직접 드래그**합니다. 0.1.3의 설치 버튼은 폴더와 안내만 열며 앱을 프로그램으로 복사하지 않습니다.
+3. **앱을 먼저 실행하지 말고** Finder에서 이동 → 폴더로 이동(Shift+Cmd+G)에 `~/Applications`를 입력합니다. 홈 폴더의 사용자 앱 폴더이며 시스템 `/Applications`와 다릅니다. 없으면 홈 폴더 안에 `Applications` 폴더를 만듭니다. 압축 푼 `KakaoTalk CLI.app`을 그 폴더로 **Finder에서 직접 드래그**합니다. 0.1.4의 설치 버튼은 폴더와 안내만 열며 앱을 프로그램으로 복사하지 않습니다.
 4. 업데이트는 **이전 제어 앱을 종료한 뒤 같은 위치의 앱을 Finder ‘대치’로 교체**합니다. CLI·스킬 링크와 상태 폴더는 그대로 둡니다. 설치된 앱을 Finder에서 열고 회사 정책에 따른 macOS 개별 앱 승인 절차를 진행합니다. 이 테스트 ZIP은 ad-hoc 임시 서명·미공증입니다. Gatekeeper가 차단하면 회사 정책에 따라 개별 앱 허용을 진행하며, 허용되지 않으면 중단합니다. 설치를 계속하려면 ‘휴지통으로 이동’을 선택하지 마세요. 보안 속성이나 설정을 일괄 해제하지 않습니다.
 5. 설치된 앱에만 손쉬운 사용 권한을 허용합니다. **이번 ZIP도 임시 서명이라 이전 승인 유지가 보장되지 않습니다.** 경로나 서명이 바뀌면 기존 허용이 켜져 있어도 다시 설정해야 할 수 있습니다. 앱의 **사용자 앱 폴더를 Finder에서 보기**로 정확한 설치 위치를 확인하세요. AppTranslocation 임시 경로 앱에는 권한을 부여하지 않습니다.
 6. **CLI + Codex·Claude Code 스킬 설치**를 누릅니다. 이전 버전의 AppTranslocation 링크는 복구하며, 다른 기존 파일·링크가 있으면 보존하고 안내합니다. 두 에이전트에서 새 대화를 시작합니다.
@@ -32,7 +32,7 @@ readlink ~/.claude/skills/cli-anything-kakaotalk
 
 검색 결과의 `label[0]`이 실제 제목입니다. 예를 들어 `📝 이름`이면 이모지와 공백까지 그대로 사용합니다. 배열의 시간·인원수는 방 이름이 아닙니다. 동일 제목이 여러 개면 가장 최근의 정확한 일치 방을 선택합니다.
 
-**26.8.0·26.9.0:** 위 비전송 기능 7개는 회사 보고에 따라 기본 허용됩니다. `file select`, `message send`, `file send`는 아직 검증되지 않아 기본 차단합니다. `--allow-untested-version`은 이를 해제하는 명시적 호환성 테스트 옵션이며, 자동으로 붙이지 마세요. 별도 테스트를 할 때만 본인 방·시험 파일로 실행하고 결과를 기록하세요.
+**26.8.0·26.9.0·26.10.0:** 위 비전송 기능 7개는 회사 보고에 따라 기본 허용됩니다. `file select`, `message send`, `file send`는 아직 검증되지 않아 기본 차단합니다. `--allow-untested-version`은 이를 해제하는 명시적 호환성 테스트 옵션이며, 자동으로 붙이지 마세요. 별도 테스트를 할 때만 본인 방·시험 파일로 실행하고 결과를 기록하세요.
 
 **26.5.0:** `file select --room "정확한 제목" "/전체/파일/경로.zip"`으로 실제 파일 선택을 확인할 수 있습니다. `selection_verified:true`, `open_enabled:true`, `sent:false`를 확인한 다음 `file cancel`로 닫습니다. 이 테스트는 열기 버튼을 누르지 않습니다.
 
@@ -46,12 +46,12 @@ readlink ~/.claude/skills/cli-anything-kakaotalk
 
 고정 인증서 서명 빌드를 만들 수 있는 옵션과 비교 방법은 `signing.md`에 있습니다. 개발 환경에 사용 가능한 인증서가 없어 **이번 ZIP은 권한 유지 개선을 실제로 증명한 인증서 빌드가 아닙니다**. 회사 승인 인증서로 같은 식별자·경로의 두 빌드를 만든 뒤 별도 시험해야 합니다. `BUILD.json.signature`의 실제 서명 유형과 지정 요구사항을 비교할 수 있습니다.
 
-## 0.1.3 완료 기준
+## 0.1.4 완료 기준
 
-CLI 버전은 0.1.3, 앱 내부 빌드 번호는 4입니다. 이전 빌드 번호 3보다 증가한 값이며 두 번호의 용도가 다릅니다.
+CLI 버전은 0.1.4, 앱 내부 빌드 번호는 5입니다. 이전 빌드 번호 4보다 증가한 값이며 두 번호의 용도가 다릅니다.
 
 - 체크섬·추출 후 서명·BUILD.json의 버전과 실행 파일 해시 일치
-- 26.9.0의 비전송 기능과 읽기 10회 반복 결과
+- 26.10.0의 비전송 기능과 읽기 10회 반복 결과
 - 다른 Space에서 WINDOWS_UNAVAILABLE 또는 정상 복구, 현재 Space 복귀 후 재조회
 - doctor가 디스크 버전과 같은 버전을 표시하고 restart_required가 false
 - 파일 선택/전송은 미검증 범위로 구분, 임시 서명 권한 유지 성공으로 기록하지 않음

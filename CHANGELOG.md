@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.4 — 2026-11-20
+
+- Added default support for the seven company-tested non-dispatch operations on KakaoTalk 26.10.0 ([#13](https://github.com/rod0826/kakaotalk-macos-cli/issues/13)). File selection and dispatch remain blocked by default.
+- Fixed exact room matching on 26.10.0 when the search-result title has a room-type prefix.
+- Added the KakaoTalk CLI app icon and incremented the bundle build number to 5.
+
 ## 0.1.3 — 2026-11-09
 - Read KakaoTalk version without stale Bundle cache and report its on-disk source.
 - Detect app plist changes after launch and require a user-controlled restart before UI actions; compatibility overrides do not bypass this guard.
