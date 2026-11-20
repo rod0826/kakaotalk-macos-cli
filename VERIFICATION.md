@@ -4,6 +4,12 @@ The [company laptop report](https://github.com/rod0826/kakaotalk-macos-cli/issue
 
 The company report leaves ordinary direct/group room opening, secret-chat prefix behavior, file selection and dispatch unverified. The default policy on 26.10.0 allows the seven non-dispatch operations.
 
+## Personal laptop verification
+
+The installed 0.1.4 CLI broker recognized KakaoTalk 26.10.0 after Accessibility permission was re-registered for the new ad-hoc signature. The personal memo-room test covered exact search and open, current state, synthetic draft input, clear and restoration, ten consecutive reads, and file chooser open/cancel. The final non-dispatch test run passed all four selected tests. One earlier profile-name search timed out and the first repeated-read test failed before passing on rerun. Message and file dispatch were outside this test.
+
+The project concluded with 0.1.4 (build 5) as the final personal test version on 2026-11-20. The frozen source is available at tag `v0.1.4`.
+
 ## Local build and packaging
 
 Python core and packaging tests passed (71 tests). Five Swift suites passed: composer and search title identity, installation, version policy, window availability, and app metadata. The rebuilt arm64 app (0.1.4, build 5) passed strict code signature verification. The final ZIP passed the external SHA-256 check and `scripts/package.py --verify`, including extraction, signature, executable hashes and version checks. The build uses an ad-hoc signature.
